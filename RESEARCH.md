@@ -138,13 +138,31 @@ the Cyclone's vendor channel has no equivalent here. Do not go looking for one.
 | 0 | `hidraw15` | Gamepad in `0x01`; LED-page out `0x02`; **vendor `0xfff0`**: out `0xa2` / in `0x43`, 36 bytes | `0x01` streams; `0x43` never seen |
 | 1 | `hidraw16` | Consumer `0x02`; Keyboard `0x03`; Mouse `0x09`; **vendor `0xfff0`**: out `0x0f` / in `0x10`, `0x12`, 63 bytes | `0x03` seen; `0x10`/`0x12` never seen |
 
-**The family channel is declared and silent.** Interface 1 advertises exactly
-the Cyclone's command channel — `0x0f` out, `0x10` and `0x12` in, 63-byte
-payloads. But in 20 seconds of hard input the pad emitted **zero** `0x12`
-frames, where a Cyclone streams `0x12` continuously. Declared in the
-descriptor is not the same as implemented in firmware. Whether the *command*
-side answers is still unproven: a command channel would not stream
-spontaneously, so this capture cannot rule it in or out.
+**The family channel is declared and DEAD — proven, not assumed.** Interface 1
+advertises exactly the Cyclone's command channel: `0x0f` out, `0x10` and `0x12`
+in, 63-byte payloads. It answers nothing.
+
+Getting that to mean anything took a control, and the first two attempts had
+none. A sweep of 16 documented Cyclone registers came back 0/16 on the
+Tarantula — but 0/16 on the Cyclone too, because the Cyclone was asleep, and a
+sleeping family device streams all-zero `0x12` frames and answers no commands.
+A silent result from a run where the *known-good* device is also silent says
+nothing about the unknown one.
+
+The run that settled it had `3537:1053` awake in the same sweep, answering
+15/16 and then 30/30 on a wider pass. Same tool, same frames, same moment:
+
+| device | answered |
+|---|---|
+| `3537:1053` (XInput mode) | **30/30** |
+| `3537:103c` Tarantula 8K | **0/30** |
+| `3537:0575` Cyclone (asleep) | 0/30 — not a valid control |
+
+So the Tarantula's vendor page is a descriptor entry its firmware does not
+service. **Configuration is not reachable over this channel.**
+
+⚠️ Any future "device X does not answer" result is meaningless unless a
+known-good device answered IN THE SAME RUN. Check the control first.
 
 **Input does not arrive on the family channel.** It comes over the ordinary
 gamepad report `0x01` on interface 0:
@@ -166,12 +184,19 @@ codes `0x130`–`0x13e` contiguously, so the kernel numbered its buttons straigh
 through and every name shifts (see the `_key_map` note in `reader.py`). Button
 identities must be measured by pressing them, not assumed from the order.
 
-**What would unblock configuration**, in order of cost: a read on the `0x0f`
-channel that actually answers (needs a known-good family device awake
-alongside as a control, or the result means nothing); failing that, the `0xa2`
-/ `0x43` channel on interface 0, which is the one the descriptor makes look
-purpose-built; failing both, a Windows USB capture of GameSir's own app
-configuring this pad.
+**What would unblock configuration.** The `0x0f` channel is now ruled out. Two
+routes remain:
+
+1. **The `0xa2` / `0x43` channel on interface 0** (36-byte reports) — the one
+   the descriptor makes look purpose-built, and the only vendor channel not yet
+   tried. Not attempted here because probing it means sending an unknown opcode
+   to a working controller: on the family protocol `0x04` is "read register",
+   but nothing guarantees it means that on a different channel, and a wrong
+   guess could write. Worth doing only with a capture to copy frames from, or
+   on hardware we are willing to risk.
+2. **A Windows USB capture of GameSir's own app** configuring this pad. Slower,
+   but it is the route that cannot fail, and it answers the framing question for
+   both channels at once. See "Methodology & tools".
 
 ---
 
