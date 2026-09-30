@@ -44,6 +44,7 @@ try:
     }
     G7_UNCONFIRMED = dict(_g7.UNCONFIRMED_EDITIONS)
     G7_WRITABLE = tuple(_g7.CONFIG_PIDS)
+    G7_NEEDS_USB = frozenset(_g7.CONFIG_PIDS + _g7.TRANSITION_PIDS)
 except Exception:                      # partial install -- report what we can
     G7_IDENTITIES = {
         0x109B: 'wired configuration', 0x109C: 'dongle configuration',
@@ -51,6 +52,7 @@ except Exception:                      # partial install -- report what we can
     }
     G7_UNCONFIRMED = {}
     G7_WRITABLE = (0x109B, 0x109C)
+    G7_NEEDS_USB = frozenset((0x109B, 0x109C, 0x100A))
 G7_IDENTITIES.update({pid: f'{name} (not configurable)'
                       for pid, name in G7_UNCONFIRMED.items()})
 
@@ -328,6 +330,7 @@ def collect():
         'rules': {},
         'nodes': [],
         'usb_devices': [],
+        'evdev': [],
         'verdict': [],
     }
     try:
@@ -358,6 +361,39 @@ def collect():
         entry = dict(n)
         entry.update(open_ladder(n['node']))
         rep['nodes'].append(entry)
+
+    # Which button-code convention each gamepad node uses. Read passively from
+    # the node's advertised EV_KEY bitmap -- nothing has to be pressed. This is
+    # here because "X and Y are swapped" was open across two issues (#10, #17)
+    # with no way to tell from a report which of the two layouts the reporter's
+    # pad used, and the answer is one ioctl away.
+    try:
+        import reader
+        from gs_common import parse_devices, VENDOR_VID
+        for d in parse_devices():
+            if d['vendor'] != VENDOR_VID:
+                continue
+            for ev in d.get('events', []):
+                try:
+                    fd = os.open(ev, os.O_RDONLY | os.O_NONBLOCK)
+                except OSError as e:
+                    rep['evdev'].append({'node': ev, 'name': d.get('name', ''),
+                                         'pid': d.get('product'), 'error': e.strerror})
+                    continue
+                try:
+                    keys = reader.keybits(fd)
+                finally:
+                    os.close(fd)
+                pad = sorted(c for c in keys if 0x130 <= c <= 0x13e)
+                if not pad:
+                    continue          # keyboard/mouse/consumer node, not a pad
+                rep['evdev'].append({
+                    'node': ev, 'name': d.get('name', ''), 'pid': d.get('product'),
+                    'count': len(pad), 'btn_c': reader.BTN_C in keys,
+                    'layout': reader._key_map(keys)[1],
+                })
+    except Exception:
+        pass
 
     try:
         from gs_common import find_controllers
@@ -539,14 +575,28 @@ def format_report(rep):
         L.append(f'    perms: {n["perms"]}')
         L.append(f'    os.open: {n["os_open"]}   hidapi: {n["hid_open"]}'
                  f'   → {n["verdict"].upper()}')
+    for n in rep.get('evdev', []):
+        if n.get('error'):
+            L.append(f'- {n["node"]}  "{n["name"]}"  cannot open: {n["error"]}')
+            continue
+        L.append(f'- {n["node"]}  "{n["name"]}"  {n["count"]}/15 gamepad buttons'
+                 f'  layout: {n["layout"].upper()}')
+        if n['layout'] == 'sequential':
+            L.append('    advertises BTN_C, so the kernel numbered its buttons '
+                     'straight through and Deadband\'s button names may be wrong '
+                     'for this pad. Please mention this on an issue.')
+
     for n in rep.get('usb_devices', []):
         L.append(f'- {n["node"]}  GameSir {n["pid"]:04x} '
                  f'({n.get("identity", "unknown")})  "{n["product"]}" port {n["port"]}')
-        if n['pid'] in G7_UNCONFIRMED:
-            # Detect-only editions get no udev grant, so a denial here is the
-            # intended state, not a fault. Saying PERMISSION DENIED would send
-            # these users chasing a rule that is absent on purpose.
-            L.append('    raw USB access: not required (recognised, not configured)')
+        if n['pid'] not in G7_NEEDS_USB:
+            # Deadband only opens the identities it can configure, plus the one
+            # it transitions through. Everything else -- a detect-only edition,
+            # or 1022, which is transitioned by holding SHARE + MENU on the pad
+            # rather than over USB -- is never opened, so a denial here is the
+            # intended state and not a fault. Printing PERMISSION DENIED sent a
+            # reporter chasing a udev rule that is absent on purpose (#17).
+            L.append('    raw USB access: not required (Deadband never opens this identity)')
         else:
             L.append('    raw USB access: ' + ('OK' if n['access'] else 'PERMISSION DENIED'))
         for i in n.get('interfaces', []):

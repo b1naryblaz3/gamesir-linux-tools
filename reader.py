@@ -405,21 +405,73 @@ def _eviocgabs(code):
     return (2 << 30) | (24 << 16) | (ord('E') << 8) | (0x40 + code)
 
 
-# ⚠ 0x133/0x134 are the well-known Linux gamepad trap. The kernel defines
-# 0x133 = BTN_NORTH (aliased BTN_X) and 0x134 = BTN_WEST (aliased BTN_Y) -- and
-# those aliases are historically WRONG for an Xbox layout, where X is the west
-# button and Y is the north one. So the mapping below is positional (north = Y),
-# which is right for a driver reporting compass semantics and backwards for one
-# that emits BTN_X/BTN_Y literally, as `xpad` does. Reported swapped on issue
-# #10; UNVERIFIED either way, because this path only ever runs for a G7 Pro in a
-# mode it can't be configured in -- the Cyclone and 8K read input over the vendor
-# hidraw channel and never reach here. Get `evtest` output before flipping it.
+# 0x133/0x134 are the well-known Linux gamepad trap, and this table had them
+# backwards. The kernel header defines BTN_X = BTN_NORTH = 0x133 and
+# BTN_Y = BTN_WEST = 0x134. Those *names* are wrong for an Xbox face layout,
+# where X is the west button and Y is the north one -- which is why a positional
+# reading (north = Y) looks correct and is not. What decides it is what the
+# driver EMITS, and xpad emits the literal aliases:
+#
+#     input_report_key(dev, BTN_X, data[3] & 0x40);   /* XInput X = 0x4000 */
+#     input_report_key(dev, BTN_Y, data[3] & 0x80);   /* XInput Y = 0x8000 */
+#
+# so 0x133 is the physical X button. Reported swapped on issues #10 and #17;
+# fixed here to match xpad.
+#
+# WHICH LAYOUT a node uses is not assumed -- _key_map() probes for it, the same
+# way _axis_map() probes axes. Two conventions exist:
+#
+#   STANDARD    0x132 (BTN_C) ABSENT. The canonical gamepad set, what xpad and
+#               a well-formed HID gamepad descriptor produce. The table below.
+#   SEQUENTIAL  0x132 PRESENT. hid-input.c maps HID button n to BTN_SOUTH + n
+#               for a bare gamepad collection, so all 15 codes come up
+#               contiguously and every name shifts. Our own Tarantula 8K does
+#               this (verified from its capabilities/key bitmap).
+#
+# No controller Deadband configures uses SEQUENTIAL today -- the Cyclone and 8K
+# read input over the vendor hidraw channel and never reach this path at all,
+# and the G7 Pro's 1022 node is STANDARD. That last one is not an assumption
+# either: under SEQUENTIAL, X would land on unmapped 0x132 and Y would still
+# read correctly, so #17 would have reported "X does nothing", not "X and Y are
+# swapped". The symptom identifies the layout.
+#
+# So SEQUENTIAL is deliberately NOT given a mapping here. Guessing one means
+# guessing the descriptor's button ORDER too, which varies by pad, and a wrong
+# guess is indistinguishable from a working one until someone presses a button.
+# It is detected and surfaced in the diagnostics instead.
 _KEY_TO_STATE = {           # Linux gamepad button codes -> state keys
-    0x130: 'a', 0x131: 'b', 0x133: 'y', 0x134: 'x',
+    0x130: 'a', 0x131: 'b', 0x133: 'x', 0x134: 'y',
     0x136: 'lb', 0x137: 'rb', 0x13a: 'view', 0x13b: 'menu',
     0x13c: 'home', 0x13d: 'ls', 0x13e: 'rs',
     0x138: 'lt_d', 0x139: 'rt_d',
 }
+BTN_C = 0x132               # the discriminator; see above
+
+
+# EVIOCGBIT(EV_KEY, len) = _IOR('E', 0x20 + EV_KEY, len)
+def _eviocgbit_key(length):
+    return (2 << 30) | (length << 16) | (ord('E') << 8) | (0x20 + _EV_KEY)
+
+
+def keybits(fd):
+    """The set of EV_KEY codes this node advertises, or an empty set if the
+    ioctl fails. Read passively -- no button has to be pressed."""
+    nbytes = (0x2ff // 8) + 1
+    buf = bytearray(nbytes)
+    try:
+        fcntl.ioctl(fd, _eviocgbit_key(nbytes), buf, True)
+    except OSError:
+        return set()
+    return {i for i in range(nbytes * 8) if buf[i // 8] >> (i % 8) & 1}
+
+
+def _key_map(present):
+    """(mapping, layout) for a node, chosen from the codes it advertises."""
+    if BTN_C in present:
+        return _KEY_TO_STATE, 'sequential'
+    return _KEY_TO_STATE, 'standard'
+
+
 # ABS axis codes we care about (ignoring the HAT dpad, handled separately).
 _ABS_CANDIDATES = (0, 1, 2, 3, 4, 5, 9, 10)
 _HAT = {(0, 0): 'neutral', (0, -1): 'up', (1, -1): 'up-right', (1, 0): 'right',
