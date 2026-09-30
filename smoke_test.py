@@ -101,6 +101,28 @@ def _udev_pid_gaps():
             if f'"{pid:04x}"' not in rules]
 
 
+def _connection_kind_gaps():
+    """Config identities connection_kind() cannot classify as wired or dongle.
+
+    The wired/dongle split is what drives the UI's connection hint and the
+    firmware panel's warning. It was hand-listed as 109b/109c and did not grow
+    when 10ba was added, so Amazon-edition owners saw a blank hint (issue #10).
+    Every CONFIG_PID must land in exactly one of WIRED_PIDS / DONGLE_PIDS --
+    both or neither is a bug."""
+    try:
+        from vendors.gamesir.models.g7pro import protocol as g7
+    except Exception:
+        return []
+    bad = []
+    for pid in g7.CONFIG_PIDS:
+        w, d = pid in g7.WIRED_PIDS, pid in g7.DONGLE_PIDS
+        if w and d:
+            bad.append(f'3537:{pid:04x} ({g7.edition_name(pid)}) is BOTH wired and dongle')
+        elif not w and not d:
+            bad.append(f'3537:{pid:04x} ({g7.edition_name(pid)}) is neither wired nor dongle')
+    return bad
+
+
 def main():
     from PySide6.QtCore import QUrl
     from PySide6.QtGui import QGuiApplication
@@ -141,7 +163,8 @@ def main():
     slot_bad = _slot_signature_mismatches()
     udev_bad = _udev_pid_gaps()
     foreign = _foreign_pid_claims()
-    ok = qml_ok and not slot_bad and not udev_bad and not foreign
+    kind_bad = _connection_kind_gaps()
+    ok = qml_ok and not slot_bad and not udev_bad and not foreign and not kind_bad
     print("=== startup smoke test ===")
     print(f"  QML (Main.qml) loaded : {'OK' if qml_ok else 'FAIL — did not load'}")
     print(f"  @Slot signatures      : "
@@ -151,6 +174,10 @@ def main():
     print(f"  udev vs CONFIG_PIDS   : "
           + ('OK' if not udev_bad else f'FAIL — {len(udev_bad)} gap(s)'))
     for m in udev_bad:
+        print(f"      {m}")
+    print(f"  wired/dongle coverage : "
+          + ('OK' if not kind_bad else f'FAIL — {len(kind_bad)} gap(s)'))
+    for m in kind_bad:
         print(f"      {m}")
     print(f"  foreign PID claims    : "
           + ('OK' if not foreign else f'FAIL — {len(foreign)}'))

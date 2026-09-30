@@ -287,11 +287,21 @@ def parse_input(report, state):
     return True
 
 
+# Which config identities are the WIRED face and which are the dongle. Kept as
+# sets rather than branches in connection_kind() so smoke_test can assert every
+# CONFIG_PID appears in exactly one: this table failed to grow when 10ba was
+# added, so Amazon-edition owners got a blank wired/wireless hint (issue #10).
+# That is the third table in this project to drift from CONFIG_PIDS, hence the
+# check instead of the good intention.
+WIRED_PIDS = (PID_WIRED, PID_AMZ_WIRED)
+DONGLE_PIDS = (PID_DONGLE,)
+
+
 def connection_kind(pid: int):
     """True for wired, False for dongle, and None while changing identity."""
-    if pid == PID_WIRED:
+    if pid in WIRED_PIDS:
         return True
-    if pid == PID_DONGLE:
+    if pid in DONGLE_PIDS:
         return False
     return None
 

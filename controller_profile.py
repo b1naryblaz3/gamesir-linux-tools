@@ -280,18 +280,25 @@ CYCLONE = ControllerProfile(
 # EDITION SCOPE: the G7 Pro ships in editions that differ ONLY by USB product id
 # (the same trap as the 8K's Nioh/Aimlabs pair — they all report a generic
 # product string). 109b/109c are the SHADOW EMBER edition, contributed and
-# hardware-verified by @brcly. Per upstream g7ctl, White Trimode is 1003/1004
-# and Zenless Zone Zero is 105d; an Amazon edition reports 10ba. None of those
-# are covered here yet -- not because the protocol is expected to differ, but
-# because nobody involved owns one to confirm against.
+# hardware-verified by @brcly; 10ba is the Amazon edition, which is the identity
+# this project's own pad presents. White Trimode (1003) and Zenless Zone Zero
+# (105e) are recognised but NOT written to -- see UNCONFIRMED_EDITIONS.
+#
+# ⚠ This comment used to say "White Trimode is 1003/1004", copied from upstream
+# g7ctl. 1004 is the T4 KALEID, a different controller, and acting on that line
+# renamed a user's pad out from under them (issue #14). The authoritative
+# tables live in models/g7pro/protocol.py; do not restate PIDs here.
 #
 # The register map looks UNIVERSAL across editions: upstream keeps its variant
 # table (name + PIDs, no addresses) entirely separate from its protocol, uses
 # one address map and command set with no variant branching anywhere, and treats
 # an unrecognised PID as "don't know the edition name yet" rather than a
 # different device. Consistent with one board in several shells, where the PID
-# exists so the vendor app can show the right picture. Adding the other editions
-# is therefore likely safe -- it just hasn't been tested by anyone here.
+# exists so the vendor app can show the right picture.
+#
+# That argument makes a new edition PLAUSIBLE. It is NOT sufficient to enable
+# one: it is the exact reasoning that carried 1004 in. An edition earns a write
+# path by round-tripping one, not by resembling one.
 #
 # CAVEAT: 100a and 1022 are NOT unique to one edition (upstream confirms 100a on
 # both Shadow Ember and White Trimode, 1022 on both Shadow Ember and Zenless).
