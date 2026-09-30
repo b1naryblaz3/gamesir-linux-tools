@@ -122,6 +122,59 @@ directional/mouse stick output, G7 motion configuration, Bluetooth, and the nati
 
 ---
 
+## GameSir Tarantula 8K — `3537:103c` — input identified, config channel unproven
+
+Measured live on 2026-09-30 by reading report descriptors and a 20-second
+passive capture. **Nothing has been written to this controller.** Recording it
+here because an earlier session derived most of this and left no trace, so it
+had to be done twice.
+
+**Two HID interfaces, both 64-byte, both on `usbhid`.** No mode switch exists
+on this pad — it is PC-only — so the "put it in Xbox mode" step that unlocks
+the Cyclone's vendor channel has no equivalent here. Do not go looking for one.
+
+| iface | node | collections | live? |
+|---|---|---|---|
+| 0 | `hidraw15` | Gamepad in `0x01`; LED-page out `0x02`; **vendor `0xfff0`**: out `0xa2` / in `0x43`, 36 bytes | `0x01` streams; `0x43` never seen |
+| 1 | `hidraw16` | Consumer `0x02`; Keyboard `0x03`; Mouse `0x09`; **vendor `0xfff0`**: out `0x0f` / in `0x10`, `0x12`, 63 bytes | `0x03` seen; `0x10`/`0x12` never seen |
+
+**The family channel is declared and silent.** Interface 1 advertises exactly
+the Cyclone's command channel — `0x0f` out, `0x10` and `0x12` in, 63-byte
+payloads. But in 20 seconds of hard input the pad emitted **zero** `0x12`
+frames, where a Cyclone streams `0x12` continuously. Declared in the
+descriptor is not the same as implemented in firmware. Whether the *command*
+side answers is still unproven: a command channel would not stream
+spontaneously, so this capture cannot rule it in or out.
+
+**Input does not arrive on the family channel.** It comes over the ordinary
+gamepad report `0x01` on interface 0:
+
+```
+01 BB BB HH LX LY RX RY LT RT      BB = 15 button bits, HH = hat (0x0f neutral)
+01 00 00 0f 80 80 80 80 00 00      neutral
+```
+
+So the Cyclone's `enhanced.py` (`0x12`) input path does not apply to this pad
+at all; it reads like a plain HID gamepad.
+
+**One button emits a keyboard key.** Report `0x03` on interface 1 fired with
+keycode `0x46` (HID Keyboard PrintScreen) in byte 3 — an extra/function button
+shipped bound to a key, in the same spirit as the Cyclone's M button.
+
+**evdev uses the SEQUENTIAL button layout.** It advertises `BTN_C` and all 15
+codes `0x130`–`0x13e` contiguously, so the kernel numbered its buttons straight
+through and every name shifts (see the `_key_map` note in `reader.py`). Button
+identities must be measured by pressing them, not assumed from the order.
+
+**What would unblock configuration**, in order of cost: a read on the `0x0f`
+channel that actually answers (needs a known-good family device awake
+alongside as a control, or the result means nothing); failing that, the `0xa2`
+/ `0x43` channel on interface 0, which is the one the descriptor makes look
+purpose-built; failing both, a Windows USB capture of GameSir's own app
+configuring this pad.
+
+---
+
 ## GameSir G7 SE — reference only (not owned; from mainline `xpad`)
 
 Listed in mainline Linux `xpad` as `3537:1010`, `XTYPE_XBOXONE` (added in kernel 6.14)
