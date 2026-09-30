@@ -36,6 +36,11 @@ confirm() {
 }
 
 # 1. dependencies -----------------------------------------------------------
+# SteamOS needs a different install route entirely; see below.
+_STEAMOS=0
+if grep -qs '^ID=steamos' /etc/os-release || command -v steamos-readonly >/dev/null; then
+  _STEAMOS=1
+fi
 missing=()
 command -v python3 >/dev/null || missing+=("python")
 python3 -c 'import PySide6' 2>/dev/null || missing+=("pyside6")
@@ -45,7 +50,30 @@ python3 -c 'import ctypes.util; assert ctypes.util.find_library("usb-1.0")' \
 if [ ${#missing[@]} -ne 0 ]; then
   echo
   echo "==> Missing dependencies: ${missing[*]}"
-  if command -v pacman >/dev/null; then
+  # SteamOS has pacman but must not be installed into with it. Its python-hidapi
+  # conflicts with python-hid, which jupiter-hw-support depends on, so pacman
+  # offers to remove a package that holds the Steam Deck's own hardware support
+  # together and then refuses the transaction anyway (issue #13). And even where
+  # it succeeds, the rootfs is read-only and reverts on the next SteamOS update,
+  # so anything installed that way silently disappears. ~/.local survives both.
+  if [ "${_STEAMOS:-0}" = 1 ]; then
+    echo "    Detected SteamOS. Installing with pacman here would conflict with"
+    echo "    jupiter-hw-support (Steam Deck hardware support) and would be wiped"
+    echo "    by the next SteamOS update anyway, so these go in ~/.local instead,"
+    echo "    which survives updates:"
+    echo "        pip install --user --break-system-packages PySide6"
+    echo "        HIDAPI_WITH_HIDRAW=1 pip install --user --break-system-packages \\"
+    echo "            --no-binary :all: hidapi"
+    echo "    (--break-system-packages only means 'outside pacman'; it installs"
+    echo "     into your home directory and touches no system package.)"
+    if confirm "    Run that now?"; then
+      pip install --user --break-system-packages PySide6
+      HIDAPI_WITH_HIDRAW=1 pip install --user --break-system-packages \
+        --no-binary :all: hidapi
+    else
+      echo "    Skipped. Install them yourself, then re-run this script."; exit 1
+    fi
+  elif command -v pacman >/dev/null; then
     echo "    These can be installed with (uses sudo):"
     echo "        sudo pacman -S --needed python pyside6 python-hidapi libusb"
     if confirm "    Run that now?"; then
