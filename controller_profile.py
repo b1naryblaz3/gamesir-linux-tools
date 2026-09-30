@@ -280,8 +280,8 @@ CYCLONE = ControllerProfile(
 # EDITION SCOPE: the G7 Pro ships in editions that differ ONLY by USB product id
 # (the same trap as the 8K's Nioh/Aimlabs pair — they all report a generic
 # product string). 109b/109c are the SHADOW EMBER edition, contributed and
-# hardware-verified by @brcly; 10ba is the Amazon edition, which is the identity
-# this project's own pad presents. White Trimode (1003) and Zenless Zone Zero
+# hardware-verified by @brcly; 10ba (wired) / 10bb (dongle) are the Amazon
+# edition, write-tested on this project's own pad. White Trimode (1003) and Zenless Zone Zero
 # (105e) are recognised but NOT written to -- see UNCONFIRMED_EDITIONS.
 #
 # ⚠ This comment used to say "White Trimode is 1003/1004", copied from upstream

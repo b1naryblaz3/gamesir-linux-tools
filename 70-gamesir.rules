@@ -27,7 +27,8 @@ SUBSYSTEM=="input", ATTRS{idVendor}=="3537", TAG+="uaccess"
 # G7 Pro configuration uses interface 0 through native libusb rather than
 # hidraw, so it needs a rule on the USB device itself. One rule per WRITABLE
 # identity -- Shadow Ember 109b (wired) / 109c (dongle) and the Amazon edition
-# 10ba -- plus 100a, the HID identity Deadband transitions through before
+# 10ba (wired) / 10bb (dongle) -- plus 100a, the HID identity Deadband
+# transitions through before
 # opening a configuration session.
 #
 # This list mirrors protocol.CONFIG_PIDS and smoke_test.py fails if it drifts.
@@ -42,4 +43,5 @@ SUBSYSTEM=="input", ATTRS{idVendor}=="3537", TAG+="uaccess"
 SUBSYSTEM=="usb", ATTR{idVendor}=="3537", ATTR{idProduct}=="109b", TAG+="uaccess"
 SUBSYSTEM=="usb", ATTR{idVendor}=="3537", ATTR{idProduct}=="109c", TAG+="uaccess"
 SUBSYSTEM=="usb", ATTR{idVendor}=="3537", ATTR{idProduct}=="10ba", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTR{idVendor}=="3537", ATTR{idProduct}=="10bb", TAG+="uaccess"
 SUBSYSTEM=="usb", ATTR{idVendor}=="3537", ATTR{idProduct}=="100a", TAG+="uaccess"

@@ -44,7 +44,7 @@ try:
     G7_IDENTITIES = {
         pid: '%s configuration (%s)' % (
             {True: 'wired', False: 'dongle'}.get(_g7.connection_kind(pid), 'config'),
-            _g7.edition_name(pid))
+            _g7.edition_name(pid).replace(' (dongle)', ''))
         for pid in _g7.CONFIG_PIDS
     }
     G7_IDENTITIES.update({
@@ -57,12 +57,12 @@ try:
 except Exception:                      # partial install -- report what we can
     G7_IDENTITIES = {
         0x109B: 'wired configuration', 0x109C: 'dongle configuration',
-        0x10BA: 'wired configuration',
+        0x10BA: 'wired configuration', 0x10BB: 'dongle configuration',
         0x100A: 'HID transition', 0x1022: 'native/GIP',
     }
     G7_UNCONFIRMED = {}
-    G7_WRITABLE = (0x109B, 0x109C, 0x10BA)
-    G7_NEEDS_USB = frozenset((0x109B, 0x109C, 0x10BA, 0x100A))
+    G7_WRITABLE = (0x109B, 0x109C, 0x10BA, 0x10BB)
+    G7_NEEDS_USB = frozenset((0x109B, 0x109C, 0x10BA, 0x10BB, 0x100A))
 G7_IDENTITIES.update({pid: f'{name} (not configurable)'
                       for pid, name in G7_UNCONFIRMED.items()})
 

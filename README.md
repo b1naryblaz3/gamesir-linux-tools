@@ -80,8 +80,8 @@ can't positively identify. Fork it and customize it however you like.
 > **G7 Pro** support was contributed by [@brcly](https://github.com/brcly) and
 > verified on their hardware rather than mine. It covers the **Shadow Ember**
 > edition (`3537:109b` wired, `3537:109c` dongle) and the **Amazon** edition
-> (`3537:10ba` — the identity my own pad presents, and the one the register map
-> was captured from). Deadband moves the transitional `3537:100a`
+> (`3537:10ba` wired, `3537:10bb` dongle — my own pad, write-tested on both).
+> Deadband moves the transitional `3537:100a`
 > identity to a configuration one automatically; if the pad is showing
 > `3537:1022` instead, hold **SHARE + MENU (☰)** together — note this also resets the active profile's remaps and the Shift layer.
 >
@@ -277,7 +277,8 @@ everything it does is **reversible** and stays **on your machine**. The specific
   G7 Pro support was contributed and verified by [@brcly](https://github.com/brcly)
   on the Shadow Ember edition (wired `3537:109b`, dongle `3537:109c`; `3537:100a`
   is transitioned automatically — hold SHARE + MENU if the pad is showing
-  `3537:1022`), plus the Amazon edition `3537:10ba`. Other G7 Pro editions are
+  `3537:1022`), plus the Amazon edition (wired `3537:10ba`, dongle `3537:10bb`),
+  write-tested here on both. Other G7 Pro editions are
   recognised but not configured. Treat anything not listed as unproven and use it
   at your own risk.
 

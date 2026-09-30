@@ -16,7 +16,7 @@ re-tread them. This is a hobby RE effort; corrections and additions welcome.
 | Device | USB IDs | Input on Linux | Config editor on Linux | Verdict |
 |---|---|---|---|---|
 | **Cyclone 2** *(GameSir, VID 0x3537)* | `0575` / `100b` / `1053` | ✅ vendor `0x12` | ✅ full | **Fully supported** |
-| **G7 Pro** *(Shadow Ember, Amazon)* | `109b` (wired config) · `109c` (dongle config) · `10ba` (Amazon config) · `100a` (transition) · `1022` (native/GIP) · `1003`/`105e` (recognised, detect-only) | ✅ evdev or claimed USB telemetry | ✅ four profiles + core/extras | **Writes on 109b/109c/10ba** — 109b/109c contributed and verified by [@brcly](https://github.com/brcly); 10ba write round-trip verified on my own pad |
+| **G7 Pro** *(Shadow Ember, Amazon)* | `109b` (wired config) · `109c` (dongle config) · `10ba` / `10bb` (Amazon wired / dongle config) · `100a` (transition) · `1022` (native/GIP) · `1003`/`105e` (recognised, detect-only) | ✅ evdev or claimed USB telemetry | ✅ four profiles + core/extras | **Writes on 109b/109c/10ba/10bb** — 109b/109c contributed and verified by [@brcly](https://github.com/brcly); 10ba/10bb write round-trip verified on my own pad |
 | G7 SE *(not owned)* | `1010` | ✅ mainline `xpad` | n/a | Reference only |
 | **G7 Pro 8K PC** | `10c5`–`10c8` edition pairs | ✅ vendor `0x12` | ✅ full incl. motion/macros/lights | **Fully supported** |
 | **G502 X LIGHTSPEED** *(Logitech, VID 0x046d)* | `c098` (wired) · `409f` / `c547` (receiver) | ✅ standard HID | ✅ full — profiles, G-Shift, DPI, macros | **Fully supported** |
@@ -200,7 +200,7 @@ routes remain:
 
 ---
 
-### `10ba` (Amazon edition) — write round-trip verified 2026-09-30
+### `10ba` / `10bb` (Amazon edition) — write round-trip verified 2026-09-30
 
 On this project's own pad, firmware 2.3.6, wired. `10ba` enumerates with two
 `ff/47/d0` (Xbox GIP) interfaces and no hidraw node; interface 0 is bound to
@@ -226,6 +226,16 @@ the physical X button and `0x134` for Y, as the `_KEY_TO_STATE` fix assumes.
 design, so none leak into a later session. A test script that prints results
 *after* its session's `finally: clear_device()` reports 0/N answered for reads
 that all succeeded. That cost one false alarm here.
+
+**Dongle: `10bb`.** Over the wireless dongle the pad enumerates as `1022` (dongle
+firmware 1.00, two plain HID interfaces on `usbhid`) — the same identity issues
+#10 and #17 reported. Holding **SHARE + MENU** re-enumerates the dongle as
+**`3537:10bb`** (firmware 1.46): `10ba + 1`, the same wired/dongle pairing as
+Shadow Ember's `109b`/`109c`, with interfaces identical to `10ba`. Same test
+sequence: the export read 46/46 chunks and matched the wired read with zero
+differences, so the dongle relays the pad's own config rather than holding its
+own. L4 → A applied over wireless, confirmed in an external browser gamepad
+tester with Deadband released; unbound; full-pad diff zero.
 
 ---
 

@@ -40,6 +40,11 @@ PID_DONGLE = 0x109C
 # also reported 10ba, and the original Windows USB capture of the config protocol
 # was taken on that identity.
 PID_AMZ_WIRED = 0x10BA
+# Amazon edition's DONGLE config identity: what its 1022 dongle re-enumerates
+# as after SHARE + MENU (dongle firmware 1.00 -> 1.46 across the switch). Same
+# two ff/47/d0 interfaces and endpoints as 10ba. Found and write-tested on this
+# project's own pad -- see the CONFIG_PIDS note below.
+PID_AMZ_DONGLE = 0x10BB
 PID_HID = 0x100A
 PID_NATIVE = 0x1022
 # THE BAR FOR THIS TUPLE IS NOT "seen on a G7 Pro" -- it is "this identity has
@@ -54,7 +59,11 @@ PID_NATIVE = 0x1022
 #              closed the kernel's xpad node emitted BTN_SOUTH for L4, where
 #              before the write it emitted nothing -- then an unbind, after which
 #              a full-pad diff against the pre-write backup showed zero changes.
-CONFIG_PIDS = (PID_WIRED, PID_DONGLE, PID_AMZ_WIRED)
+#   10bb       same pad over its dongle, same day, same sequence: 46/46 chunks,
+#              identical to the wired read; L4 -> A applied over wireless and
+#              confirmed in an external gamepad tester with Deadband released;
+#              unbind; full-pad diff zero.
+CONFIG_PIDS = (PID_WIRED, PID_DONGLE, PID_AMZ_WIRED, PID_AMZ_DONGLE)
 
 # Product ids belonging to OTHER GameSir devices, from mainline xpad. Listed so
 # nothing here can claim one by accident; smoke_test asserts no overlap.
@@ -73,6 +82,7 @@ EDITIONS = {
     PID_WIRED: 'Shadow Ember',
     PID_DONGLE: 'Shadow Ember (dongle)',
     PID_AMZ_WIRED: 'Amazon edition',
+    PID_AMZ_DONGLE: 'Amazon edition (dongle)',
 }
 
 # Editions seen on a real G7 Pro but never written to. The protocol LOOKS common
@@ -300,7 +310,7 @@ def parse_input(report, state):
 # That is the third table in this project to drift from CONFIG_PIDS, hence the
 # check instead of the good intention.
 WIRED_PIDS = (PID_WIRED, PID_AMZ_WIRED)
-DONGLE_PIDS = (PID_DONGLE,)
+DONGLE_PIDS = (PID_DONGLE, PID_AMZ_DONGLE)
 
 
 def connection_kind(pid: int):
