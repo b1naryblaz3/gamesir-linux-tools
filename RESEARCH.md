@@ -16,7 +16,7 @@ re-tread them. This is a hobby RE effort; corrections and additions welcome.
 | Device | USB IDs | Input on Linux | Config editor on Linux | Verdict |
 |---|---|---|---|---|
 | **Cyclone 2** *(GameSir, VID 0x3537)* | `0575` / `100b` / `1053` | ✅ vendor `0x12` | ✅ full | **Fully supported** |
-| **G7 Pro** *(Shadow Ember, Amazon)* | `109b` (wired config) · `109c` (dongle config) · `10ba` (Amazon config) · `100a` (transition) · `1022` (native/GIP) · `1003`/`105e` (recognised, detect-only) | ✅ evdev or claimed USB telemetry | ✅ four profiles + core/extras | **Writes on 109b/109c/10ba** — 109b/109c contributed and verified by [@brcly](https://github.com/brcly); 10ba is my own pad's identity and the one the register map was captured from |
+| **G7 Pro** *(Shadow Ember, Amazon)* | `109b` (wired config) · `109c` (dongle config) · `10ba` (Amazon config) · `100a` (transition) · `1022` (native/GIP) · `1003`/`105e` (recognised, detect-only) | ✅ evdev or claimed USB telemetry | ✅ four profiles + core/extras | **Writes on 109b/109c/10ba** — 109b/109c contributed and verified by [@brcly](https://github.com/brcly); 10ba write round-trip verified on my own pad |
 | G7 SE *(not owned)* | `1010` | ✅ mainline `xpad` | n/a | Reference only |
 | **G7 Pro 8K PC** | `10c5`–`10c8` edition pairs | ✅ vendor `0x12` | ✅ full incl. motion/macros/lights | **Fully supported** |
 | **G502 X LIGHTSPEED** *(Logitech, VID 0x046d)* | `c098` (wired) · `409f` / `c547` (receiver) | ✅ standard HID | ✅ full — profiles, G-Shift, DPI, macros | **Fully supported** |
@@ -200,6 +200,35 @@ routes remain:
 
 ---
 
+### `10ba` (Amazon edition) — write round-trip verified 2026-09-30
+
+On this project's own pad, firmware 2.3.6, wired. `10ba` enumerates with two
+`ff/47/d0` (Xbox GIP) interfaces and no hidraw node; interface 0 is bound to
+`xpad` until Deadband claims it (`usbfs`) and returns to `xpad` on release.
+
+1. **Session.** 1,709 vendor telemetry frames, zero standard XInput frames, so
+   the "wrong kind of identity" guard never fired. Active profile (1) and
+   firmware answered from the pad.
+2. **Read.** The app's own export read 46/46 chunks: all four profile banks plus
+   the dock block, decoding to factory defaults (vibration 75/75, stick
+   deadzones 10–100, trigger 5–95, every remap unmapped).
+3. **UI.** Profile bar rendered four profiles with the active dot on profile 1.
+4. **Write, verified from outside the app.** L4 → A on profile 1 through the GUI,
+   Apply, Release to games. With Deadband closed the kernel's `xpad` node emitted
+   `BTN_SOUTH` for L4; before the write it emitted nothing.
+5. **Unbind.** L4 back to unmapped, Apply. A full-pad diff against the pre-write
+   backup showed **zero** differences, so the cycle touched nothing but L4.
+
+The same session confirmed the X/Y mapping on hardware: `xpad` emits `0x133` for
+the physical X button and `0x134` for Y, as the `_KEY_TO_STATE` fix assumes.
+
+⚠️ **Harness trap.** `control.clear_device()` drops every stored read result by
+design, so none leak into a later session. A test script that prints results
+*after* its session's `finally: clear_device()` reports 0/N answered for reads
+that all succeeded. That cost one false alarm here.
+
+---
+
 ## GameSir G7 SE — reference only (not owned; from mainline `xpad`)
 
 Listed in mainline Linux `xpad` as `3537:1010`, `XTYPE_XBOXONE` (added in kernel 6.14)
@@ -287,19 +316,15 @@ steps per typed character.
 
 - **Other G7 Pro editions.** The editions differ only by USB product id. White
   Trimode (`1003`) and Zenless Zone Zero (`105e`) are recognised and named but
-  have **no write path**: neither has ever accepted a config write, and for
-  `1003` the one report we have showed both interfaces as `ff/47/d0` (Xbox GIP),
-  where the unclaimed interface is usually audio rather than a config channel.
-  The register map looks common to every edition — upstream `g7ctl` keeps its
+  have **no write path**: neither has ever accepted a config write. (This entry
+  used to add that `1003`'s two `ff/47/d0` GIP interfaces counted against it.
+  They don't — `10ba`, now write-verified, has the identical layout, and its
+  config channel *is* the xpad-bound GIP interface 0.) The register map looks common to every edition — upstream `g7ctl` keeps its
   variant table to names and PIDs, branches on the variant nowhere, and drives
   PIDs it has never seen — but that argument is what carried `1004` in, and
   `1004` is the T4 Kaleid (issue #14). **A confirmed write round-trip, not a
   resemblance, is what promotes an edition into `CONFIG_PIDS`.** Confirming one
   would unblock the rest.
-- **A write round-trip on `10ba`.** It is in `CONFIG_PIDS` because it is the
-  identity this project's own pad presents and the one the Windows capture was
-  taken on — the config channel there is read, not inferred. What is missing is
-  a write back to a pad with someone watching the result.
 - **8BitDo controllers.** Planned; not started.
 
 ---

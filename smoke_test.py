@@ -123,6 +123,24 @@ def _connection_kind_gaps():
     return bad
 
 
+def _doctor_identity_gaps():
+    """G7 Pro identities the app knows but the diagnostics would skip.
+
+    doctor.py only reports a G7 Pro whose PID is in its G7_IDENTITIES table.
+    That table once named 109b/109c by hand, so when 10ba was promoted to a
+    config identity it disappeared from every report while the app drove it
+    fine -- the fourth table in this project to drift from CONFIG_PIDS."""
+    try:
+        import doctor
+        from vendors.gamesir.models.g7pro import protocol as g7
+    except Exception:
+        return []
+    known = set(g7.CONFIG_PIDS) | set(g7.TRANSITION_PIDS) | set(g7.UNCONFIRMED_PIDS) \
+        | {g7.PID_NATIVE}
+    return [f'3537:{pid:04x} ({g7.edition_name(pid) or "?"}) is invisible to the diagnostics'
+            for pid in sorted(known) if pid not in doctor.G7_IDENTITIES]
+
+
 def main():
     from PySide6.QtCore import QUrl
     from PySide6.QtGui import QGuiApplication
@@ -164,7 +182,9 @@ def main():
     udev_bad = _udev_pid_gaps()
     foreign = _foreign_pid_claims()
     kind_bad = _connection_kind_gaps()
-    ok = qml_ok and not slot_bad and not udev_bad and not foreign and not kind_bad
+    doc_bad = _doctor_identity_gaps()
+    ok = (qml_ok and not slot_bad and not udev_bad and not foreign and not kind_bad
+          and not doc_bad)
     print("=== startup smoke test ===")
     print(f"  QML (Main.qml) loaded : {'OK' if qml_ok else 'FAIL — did not load'}")
     print(f"  @Slot signatures      : "
@@ -178,6 +198,10 @@ def main():
     print(f"  wired/dongle coverage : "
           + ('OK' if not kind_bad else f'FAIL — {len(kind_bad)} gap(s)'))
     for m in kind_bad:
+        print(f"      {m}")
+    print(f"  diagnostics coverage  : "
+          + ('OK' if not doc_bad else f'FAIL — {len(doc_bad)} gap(s)'))
+    for m in doc_bad:
         print(f"      {m}")
     print(f"  foreign PID claims    : "
           + ('OK' if not foreign else f'FAIL — {len(foreign)}'))

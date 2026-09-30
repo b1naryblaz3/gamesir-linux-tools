@@ -28,9 +28,12 @@ PID_DONGLE = 0x109C
 #
 # 105e (Zenless) and 1003 (White Trimode) live in UNCONFIRMED_EDITIONS below.
 # Both were OBSERVED on a real G7 Pro, which is why they are named -- but neither
-# has ever accepted a config write, and for 1003 the evidence points the other
-# way: the reporter's interfaces were both ff/47/d0 (Xbox GIP), where an
-# unclaimed interface is usually AUDIO rather than a config channel.
+# has ever accepted a config write. That is the whole reason they are not in
+# CONFIG_PIDS. (An earlier version of this note also argued that 1003's two
+# ff/47/d0 GIP interfaces counted AGAINST it. They don't: 10ba, the verified
+# config identity, has exactly that layout, and its config channel IS the
+# xpad-bound GIP interface 0. If anything that layout counts in 1003's favour.)
+#
 # Amazon edition. Reported on issue #10 wired as 10ba with NO hidraw node at all,
 # which is the vendor-class signature every other configuration identity has --
 # 1022 by contrast comes up with two hidraw interfaces. This project's own G7 Pro
@@ -42,12 +45,15 @@ PID_NATIVE = 0x1022
 # THE BAR FOR THIS TUPLE IS NOT "seen on a G7 Pro" -- it is "this identity has
 # ACCEPTED A CONFIG WRITE". 0x1004 got in on a pattern and turned out to be
 # another controller (issue #14); 1003 and 105e got in on a sighting and have
-# never taken a write. 109b/109c were round-tripped on @brcly's hardware. 10ba
-# is here on the strongest evidence short of that: it is the identity this
-# project's own G7 Pro presents, and the Windows capture the whole register map
-# was derived from was taken ON 10ba -- so the config channel is not inferred
-# there, it is the channel we read. What is still missing is a write back to a
-# pad while someone watches the result, which is why it is called out here.
+# never taken a write. Every entry has a round-trip behind it:
+#   109b/109c  on @brcly's hardware.
+#   10ba       on this project's own pad, 2026-09-30 (firmware 2.3.6): a full
+#              read of all four profile banks + dock through the app's own export
+#              (46/46 chunks, factory defaults), then an L4 -> A remap written
+#              through the GUI and confirmed from OUTSIDE the app -- with Deadband
+#              closed the kernel's xpad node emitted BTN_SOUTH for L4, where
+#              before the write it emitted nothing -- then an unbind, after which
+#              a full-pad diff against the pre-write backup showed zero changes.
 CONFIG_PIDS = (PID_WIRED, PID_DONGLE, PID_AMZ_WIRED)
 
 # Product ids belonging to OTHER GameSir devices, from mainline xpad. Listed so
@@ -73,9 +79,9 @@ EDITIONS = {
 # to all of them (upstream g7ctl keeps its variant table to names + PIDs,
 # branches on the variant nowhere, and happily drives a PID it has never seen) --
 # but "looks common" is an argument, not a result, and these stay here until one
-# of them takes a write. For 1003 the little evidence there is points away: the
-# reporter's interfaces were both ff/47/d0, Xbox GIP, where the unclaimed
-# interface is usually audio rather than a config channel.
+# of them takes a write. The 10ba round-trip makes that more likely, not
+# certain: it proves the map on a second edition, which is exactly the kind of
+# evidence that made 1004 look safe.
 #
 # Being named still earns its keep: these pads get input plus an honest "not
 # supported yet" instead of a bare hex id, and they get no udev grant, since

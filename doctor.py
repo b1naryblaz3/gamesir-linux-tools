@@ -36,23 +36,33 @@ VENDOR_NAMES = {0x3537: 'GameSir', 0x046D: 'Logitech'}
 # hiding the single most likely explanation for "it's found but I see no config".
 try:
     from vendors.gamesir.models.g7pro import protocol as _g7
+    # Every configurable identity comes from CONFIG_PIDS, never a hand list.
+    # This used to name 109b/109c literally and then add the UNCONFIRMED
+    # editions, so a CONFIGURABLE edition other than Shadow Ember fell through
+    # both: when 10ba was promoted it vanished from every diagnostics report,
+    # device line and verdict alike, while the app itself drove it fine.
     G7_IDENTITIES = {
-        _g7.PID_WIRED: 'wired configuration',
-        _g7.PID_DONGLE: 'dongle configuration',
+        pid: '%s configuration (%s)' % (
+            {True: 'wired', False: 'dongle'}.get(_g7.connection_kind(pid), 'config'),
+            _g7.edition_name(pid))
+        for pid in _g7.CONFIG_PIDS
+    }
+    G7_IDENTITIES.update({
         _g7.PID_HID: 'HID transition',
         _g7.PID_NATIVE: 'native/GIP',
-    }
+    })
     G7_UNCONFIRMED = dict(_g7.UNCONFIRMED_EDITIONS)
     G7_WRITABLE = tuple(_g7.CONFIG_PIDS)
     G7_NEEDS_USB = frozenset(_g7.CONFIG_PIDS + _g7.TRANSITION_PIDS)
 except Exception:                      # partial install -- report what we can
     G7_IDENTITIES = {
         0x109B: 'wired configuration', 0x109C: 'dongle configuration',
+        0x10BA: 'wired configuration',
         0x100A: 'HID transition', 0x1022: 'native/GIP',
     }
     G7_UNCONFIRMED = {}
-    G7_WRITABLE = (0x109B, 0x109C)
-    G7_NEEDS_USB = frozenset((0x109B, 0x109C, 0x100A))
+    G7_WRITABLE = (0x109B, 0x109C, 0x10BA)
+    G7_NEEDS_USB = frozenset((0x109B, 0x109C, 0x10BA, 0x100A))
 G7_IDENTITIES.update({pid: f'{name} (not configurable)'
                       for pid, name in G7_UNCONFIRMED.items()})
 
@@ -264,9 +274,14 @@ def _interfaces(sysfs):
     Distinguishes a vendor CONFIG interface from an Xbox INPUT one. Both are
     vendor-class with no hidraw node, so from the device line alone they look
     identical -- which is exactly the ambiguity that makes it hard to say whether
-    a new edition's identity is configurable or just XInput. xpad-bound `ff/5d/01`
-    (XInput) or `ff/47/d0` (GIP) is input; an interface with no driver, or a
-    driver that isn't xpad, is the interesting one."""
+    a new edition's identity is configurable or just XInput. `ff/5d/01` is Xbox
+    360 XInput; `ff/47/d0` is Xbox GIP.
+
+    Do NOT read "xpad-bound GIP" as "input only". The G7 Pro's verified config
+    identity (10ba) has two ff/47/d0 interfaces, and its config channel IS the
+    xpad-bound interface 0 -- Deadband detaches xpad to use it. An earlier
+    version of this docstring said the opposite, and that reasoning briefly got
+    a configurable-looking identity (1003) filed as evidence against itself."""
     out = []
     if not sysfs:
         return out
@@ -601,13 +616,12 @@ def format_report(rep):
             L.append('    raw USB access: ' + ('OK' if n['access'] else 'PERMISSION DENIED'))
         for i in n.get('interfaces', []):
             cls, sub, proto = i['cls'], i['sub'], i['proto']
-            # ff/47/d0 = Xbox GIP, ff/5d/01 = Xbox 360 XInput. On BOTH, interface 0
-            # carries input; a higher unclaimed one is usually audio, not a config
-            # channel. Only a vendor interface that is NEITHER of those is worth
-            # calling a config candidate -- an earlier version of this line labelled
-            # a GIP audio interface as one, which is exactly the wrong hint.
+            # ff/47/d0 = Xbox GIP, ff/5d/01 = Xbox 360 XInput. A higher unclaimed
+            # GIP interface is usually audio. Interface 0 carries input -- AND, on
+            # a G7 Pro config identity like 10ba, the config channel itself.
             if (cls, sub, proto) == ('ff', '47', 'd0'):
-                kind = '   <- Xbox GIP (iface 0 = input; higher usually audio)'
+                kind = ('   <- Xbox GIP (input; on a G7 Pro config identity, also config)'
+                        if i['name'].endswith(':1.0') else '   <- Xbox GIP (usually audio)')
             elif (cls, sub, proto) == ('ff', '5d', '01'):
                 kind = '   <- Xbox 360 XInput (input)'
             elif cls == 'ff' and i['driver'] == '-':
