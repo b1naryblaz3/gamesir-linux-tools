@@ -19,21 +19,6 @@ VID = 0x3537
 # Shadow Ember -- the edition this integration was built and verified against.
 PID_WIRED = 0x109B
 PID_DONGLE = 0x109C
-# RULE FOR THIS TABLE: a PID earns a place in CONFIG_PIDS only when someone has
-# OBSERVED IT ON A G7 PRO -- ours, a contributor's, or a user's report. Inferring
-# one from a consecutive-pair pattern or from an upstream table is how 0x1004,
-# which is a different product entirely (the T4 Kaleid, see RESEARCH.md and
-# mainline xpad), became a writable config identity here and got a user's
-# controller renamed out from under them (issue #14).
-#
-# 105e (Zenless) and 1003 (White Trimode) live in UNCONFIRMED_EDITIONS below.
-# Both were OBSERVED on a real G7 Pro, which is why they are named -- but neither
-# has ever accepted a config write. That is the whole reason they are not in
-# CONFIG_PIDS. (An earlier version of this note also argued that 1003's two
-# ff/47/d0 GIP interfaces counted AGAINST it. They don't: 10ba, the verified
-# config identity, has exactly that layout, and its config channel IS the
-# xpad-bound GIP interface 0. If anything that layout counts in 1003's favour.)
-#
 # Amazon edition. Reported on issue #10 wired as 10ba with NO hidraw node at all,
 # which is the vendor-class signature every other configuration identity has --
 # 1022 by contrast comes up with two hidraw interfaces. This project's own G7 Pro
@@ -42,16 +27,29 @@ PID_DONGLE = 0x109C
 PID_AMZ_WIRED = 0x10BA
 # Amazon edition's DONGLE config identity: what its 1022 dongle re-enumerates
 # as after SHARE + MENU (dongle firmware 1.00 -> 1.46 across the switch). Same
-# two ff/47/d0 interfaces and endpoints as 10ba. Found and write-tested on this
-# project's own pad -- see the CONFIG_PIDS note below.
+# two ff/47/d0 interfaces and endpoints as 10ba.
 PID_AMZ_DONGLE = 0x10BB
+# White Trimode: 1003 on the cable, 1004 on its CHARGING DOCK (reported on #9 by
+# an owner, whose pad names itself "GameSir-G7 Pro" in both).
+#
+# ⚠ 1004 IS SHARED. Mainline xpad also has 3537:1004 in its device table as the
+# "GameSir T4 Kaleid", typed XTYPE_XBOX360. So a White Trimode on its dock is
+# NAMED "GameSir T4 Kaleid" by the kernel and driven with the Xbox 360 protocol,
+# while it actually speaks GIP (ff/47/d0) -- games get no input from it there.
+# That is issue #14: "renamed my G7 Pro to a T4 Kaleid, no input outside
+# Deadband". The "rename" is the kernel's label for that id; nothing writes a
+# pad's identity. (This file previously called 1004 "a different product
+# entirely" and blamed #14 on Deadband claiming it. Both were wrong: the
+# collision is in xpad's table.) So 1004 is claimed only through is_g7_device(),
+# which requires the device to call itself a G7 Pro -- the same product-string
+# tie-break 0575 already uses for the Cyclone / idle 8K dongle.
+PID_WT_WIRED = 0x1003
+PID_WT_DOCK = 0x1004
 PID_HID = 0x100A
 PID_NATIVE = 0x1022
-# THE BAR FOR THIS TUPLE IS NOT "seen on a G7 Pro" -- it is "this identity has
-# ACCEPTED A CONFIG WRITE". 0x1004 got in on a pattern and turned out to be
-# another controller (issue #14); 1003 and 105e got in on a sighting and have
-# never taken a write. Every entry has a round-trip behind it:
-#   109b/109c  on @brcly's hardware.
+# THE BAR FOR THIS TUPLE: evidence from a real G7 Pro that config reads AND
+# writes work on the identity -- never a pattern, never an upstream table alone.
+#   109b/109c  write round-trip on @brcly's hardware.
 #   10ba       on this project's own pad, 2026-09-30 (firmware 2.3.6): a full
 #              read of all four profile banks + dock through the app's own export
 #              (46/46 chunks, factory defaults), then an L4 -> A remap written
@@ -59,46 +57,59 @@ PID_NATIVE = 0x1022
 #              closed the kernel's xpad node emitted BTN_SOUTH for L4, where
 #              before the write it emitted nothing -- then an unbind, after which
 #              a full-pad diff against the pre-write backup showed zero changes.
-#   10bb       same pad over its dongle, same day, same sequence: 46/46 chunks,
-#              identical to the wired read; L4 -> A applied over wireless and
-#              confirmed in an external gamepad tester with Deadband released;
-#              unbind; full-pad diff zero.
-CONFIG_PIDS = (PID_WIRED, PID_DONGLE, PID_AMZ_WIRED, PID_AMZ_DONGLE)
+#              2026-10-01: 60% written to grip/trigger vibration and dock
+#              brightness, read back, restored, full-pad diff zero.
+#   10bb       same pad over its dongle, same sequence: 46/46 chunks, identical
+#              to the wired read; L4 -> A applied over wireless and confirmed in
+#              an external gamepad tester with Deadband released; full-pad diff 0.
+#   1003/1004  an owner (#9, 2026-09-15) ran Deadband wired and on the dock and
+#              reported every value -- rebinds, sticks, vibration, dock
+#              brightness -- read back exactly as set on Windows. That is the
+#              read-confirmation #9 publicly set as the bar for re-enabling; the
+#              WRITE side rests on the map being identical, now proven on three
+#              other identities. Weaker than a watched round-trip, and noted as such.
+CONFIG_PIDS = (PID_WIRED, PID_DONGLE, PID_AMZ_WIRED, PID_AMZ_DONGLE,
+               PID_WT_WIRED, PID_WT_DOCK)
 
-# Product ids belonging to OTHER GameSir devices, from mainline xpad. Listed so
-# nothing here can claim one by accident; smoke_test asserts no overlap.
+# Product ids belonging to OTHER GameSir devices, from mainline xpad. An id here
+# may appear in CONFIG_PIDS ONLY if it is also in SHARED_PIDS, i.e. is resolved
+# per device by is_g7_device(); smoke_test enforces that and exercises the check.
 OTHER_PRODUCT_PIDS = {
     0x1004: 'T4 Kaleid',
     0x100F: 'Nova 2 Lite',
     0x1010: 'G7 SE',
 }
+SHARED_PIDS = {PID_WT_DOCK: 'T4 Kaleid'}
+
+
+def is_g7_device(pid, product):
+    """Is this device a G7 Pro? Only a SHARED id needs asking: it counts as a G7
+    Pro when its own product string says so ("GameSir-G7 Pro"). No string means
+    no claim -- fail closed, so a real T4 Kaleid is never driven as a G7 Pro."""
+    if pid not in SHARED_PIDS:
+        return True
+    return bool(product) and 'g7 pro' in product.lower().replace('-', ' ')
+
 
 # Display names for the editions Deadband will configure. The register map is
 # NOT branched per edition -- upstream uses one map everywhere and drives ids it
 # has never seen, which is consistent with one board in several shells. That
-# reasoning is why a new edition is PLAUSIBLE, but on its own it is not enough to
-# put one here: it was exactly this argument that carried 1004 in.
+# reasoning makes a new edition PLAUSIBLE; on its own it is not enough to put one
+# here.
 EDITIONS = {
     PID_WIRED: 'Shadow Ember',
     PID_DONGLE: 'Shadow Ember (dongle)',
     PID_AMZ_WIRED: 'Amazon edition',
     PID_AMZ_DONGLE: 'Amazon edition (dongle)',
+    PID_WT_WIRED: 'White Trimode',
+    PID_WT_DOCK: 'White Trimode (dock)',
 }
 
-# Editions seen on a real G7 Pro but never written to. The protocol LOOKS common
-# to all of them (upstream g7ctl keeps its variant table to names + PIDs,
-# branches on the variant nowhere, and happily drives a PID it has never seen) --
-# but "looks common" is an argument, not a result, and these stay here until one
-# of them takes a write. The 10ba round-trip makes that more likely, not
-# certain: it proves the map on a second edition, which is exactly the kind of
-# evidence that made 1004 look safe.
-#
-# Being named still earns its keep: these pads get input plus an honest "not
-# supported yet" instead of a bare hex id, and they get no udev grant, since
-# Deadband never opens them. Promoting one means a confirmed write round-trip,
-# a CONFIG_PIDS entry and a 70-gamesir.rules line in the same commit.
+# Editions seen on a real G7 Pro but with no confirmation that config reads back
+# correctly. They get input plus an honest "not supported yet" instead of a bare
+# hex id, and no udev grant, since Deadband never opens them. Promoting one means
+# the confirmation, a CONFIG_PIDS entry and a 70-gamesir.rules line in one commit.
 UNCONFIRMED_EDITIONS = {
-    0x1003: 'White Trimode',
     0x105E: 'Zenless Zone Zero (dongle)',
 }
 UNCONFIRMED_PIDS = tuple(UNCONFIRMED_EDITIONS)
@@ -309,8 +320,8 @@ def parse_input(report, state):
 # added, so Amazon-edition owners got a blank wired/wireless hint (issue #10).
 # That is the third table in this project to drift from CONFIG_PIDS, hence the
 # check instead of the good intention.
-WIRED_PIDS = (PID_WIRED, PID_AMZ_WIRED)
-DONGLE_PIDS = (PID_DONGLE, PID_AMZ_DONGLE)
+WIRED_PIDS = (PID_WIRED, PID_AMZ_WIRED, PID_WT_WIRED)
+DONGLE_PIDS = (PID_DONGLE, PID_AMZ_DONGLE, PID_WT_DOCK)    # the dock is the wireless link
 
 
 def connection_kind(pid: int):

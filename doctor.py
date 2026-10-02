@@ -416,6 +416,13 @@ def collect():
         for dev in find_controllers():
             if dev.get('pid') not in G7_IDENTITIES:
                 continue
+            # 3537:1004 is shared with the T4 Kaleid (mainline xpad); only report
+            # it as a G7 Pro identity when the device names itself one.
+            try:
+                if not _g7.is_g7_device(dev.get('pid'), dev.get('product')):
+                    continue
+            except NameError:
+                pass
             meta = dev.get('usb') or {}
             node = '/dev/bus/usb/%03d/%03d' % (meta.get('bus', 0), meta.get('address', 0))
             rep['usb_devices'].append({

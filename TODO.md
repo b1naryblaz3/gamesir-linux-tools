@@ -83,11 +83,12 @@ than mine. *(Full per-device findings in **[RESEARCH.md](RESEARCH.md)**.)*
       clears). Remaining: capture the **Cyclone** applying an L4/R4 + View/Menu remap
       to confirm those *source*-slot addresses on the Cyclone specifically (the G7 slot
       bases may differ) and that it accepts the writes.
-- [ ] **Confirm the G7 Pro register map on a second edition.** The editions differ
-      only by USB product id, and everything points at one shared map — but it's
-      unconfirmed, so White Trimode (`1003`/`1004`), Zenless (`105d`) and the Amazon
-      edition (`10ba`) are recognised without a write path. One owner of any of them
-      could settle it. *(2026-09-06)*
+- [x] **Confirm the G7 Pro register map on a second edition.** Done: Amazon
+      (`10ba`/`10bb`, round-tripped here) and White Trimode (`1003`/`1004`, owner-
+      confirmed on #9). Zenless (`105e`) still recognised without a write path.
+- [ ] **Upstream an xpad fix for `3537:1004`.** Its T4 Kaleid table entry
+      (`XTYPE_XBOX360`) captures the White Trimode's GIP dock identity, which then
+      gets no input (#14).
 - [ ] **PS4 / Switch-mode input parsing** — the vendor channel is Xbox-only; other
       modes need their own report parser.
 

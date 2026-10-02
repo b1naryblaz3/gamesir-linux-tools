@@ -279,15 +279,13 @@ CYCLONE = ControllerProfile(
 #
 # EDITION SCOPE: the G7 Pro ships in editions that differ ONLY by USB product id
 # (the same trap as the 8K's Nioh/Aimlabs pair — they all report a generic
-# product string). 109b/109c are the SHADOW EMBER edition, contributed and
-# hardware-verified by @brcly; 10ba (wired) / 10bb (dongle) are the Amazon
-# edition, write-tested on this project's own pad. White Trimode (1003) and Zenless Zone Zero
-# (105e) are recognised but NOT written to -- see UNCONFIRMED_EDITIONS.
+# product string). The editions and their USB ids -- Shadow Ember, Amazon,
+# White Trimode, and the detect-only Zenless -- live in models/g7pro/protocol.py,
+# along with the evidence behind each; do not restate PIDs here (a copy of this
+# list once drifted and carried a wrong claim about 1004).
 #
-# ⚠ This comment used to say "White Trimode is 1003/1004", copied from upstream
-# g7ctl. 1004 is the T4 KALEID, a different controller, and acting on that line
-# renamed a user's pad out from under them (issue #14). The authoritative
-# tables live in models/g7pro/protocol.py; do not restate PIDs here.
+# 3537:1004 is SHARED with the T4 Kaleid in mainline xpad's table; detect_one
+# resolves it by product string. See protocol.py and issue #14.
 #
 # The register map looks UNIVERSAL across editions: upstream keeps its variant
 # table (name + PIDs, no addresses) entirely separate from its protocol, uses
@@ -297,8 +295,8 @@ CYCLONE = ControllerProfile(
 # exists so the vendor app can show the right picture.
 #
 # That argument makes a new edition PLAUSIBLE. It is NOT sufficient to enable
-# one: it is the exact reasoning that carried 1004 in. An edition earns a write
-# path by round-tripping one, not by resembling one.
+# one: an edition earns a write path through evidence from a real pad, not by
+# resembling one.
 #
 # CAVEAT: 100a and 1022 are NOT unique to one edition (upstream confirms 100a on
 # both Shadow Ember and White Trimode, 1022 on both Shadow Ember and Zenless).
@@ -538,6 +536,11 @@ def detect_one(pid, product=None):
     if (prof is CYCLONE and pid == _SHARED_PID
             and product and 'cyclone' not in product.lower()):
         return G7_8K
+    # 3537:1004 is shared too: the G7 Pro White Trimode's dock identity AND, in
+    # mainline xpad, the T4 Kaleid. Only claim it when the device names itself a
+    # G7 Pro; anything else is left alone (not recognised, never written).
+    if prof is G7_PRO and not _g7.is_g7_device(pid, product):
+        return None
     return prof
 
 

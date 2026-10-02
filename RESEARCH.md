@@ -16,7 +16,7 @@ re-tread them. This is a hobby RE effort; corrections and additions welcome.
 | Device | USB IDs | Input on Linux | Config editor on Linux | Verdict |
 |---|---|---|---|---|
 | **Cyclone 2** *(GameSir, VID 0x3537)* | `0575` / `100b` / `1053` | ✅ vendor `0x12` | ✅ full | **Fully supported** |
-| **G7 Pro** *(Shadow Ember, Amazon)* | `109b` (wired config) · `109c` (dongle config) · `10ba` / `10bb` (Amazon wired / dongle config) · `100a` (transition) · `1022` (native/GIP) · `1003`/`105e` (recognised, detect-only) | ✅ evdev or claimed USB telemetry | ✅ four profiles + core/extras | **Writes on 109b/109c/10ba/10bb** — 109b/109c contributed and verified by [@brcly](https://github.com/brcly); 10ba/10bb write round-trip verified on my own pad |
+| **G7 Pro** *(Shadow Ember, Amazon)* | `109b` (wired config) · `109c` (dongle config) · `10ba` / `10bb` (Amazon wired / dongle config) · `100a` (transition) · `1022` (native/GIP) · `1003` / `1004` (White Trimode wired / dock; 1004 shared with the T4 Kaleid) · `105e` (recognised, detect-only) | ✅ evdev or claimed USB telemetry | ✅ four profiles + core/extras | **Writes on 109b/109c/10ba/10bb/1003/1004** — 109b/109c contributed and verified by [@brcly](https://github.com/brcly); 10ba/10bb write round-trip verified on my own pad; 1003/1004 confirmed by an owner (#9) |
 | G7 SE *(not owned)* | `1010` | ✅ mainline `xpad` | n/a | Reference only |
 | **G7 Pro 8K PC** | `10c5`–`10c8` edition pairs | ✅ vendor `0x12` | ✅ full incl. motion/macros/lights | **Fully supported** |
 | **G502 X LIGHTSPEED** *(Logitech, VID 0x046d)* | `c098` (wired) · `409f` / `c547` (receiver) | ✅ standard HID | ✅ full — profiles, G-Shift, DPI, macros | **Fully supported** |
@@ -324,17 +324,19 @@ steps per typed character.
 
 ## To be tested
 
-- **Other G7 Pro editions.** The editions differ only by USB product id. White
-  Trimode (`1003`) and Zenless Zone Zero (`105e`) are recognised and named but
-  have **no write path**: neither has ever accepted a config write. (This entry
-  used to add that `1003`'s two `ff/47/d0` GIP interfaces counted against it.
-  They don't — `10ba`, now write-verified, has the identical layout, and its
-  config channel *is* the xpad-bound GIP interface 0.) The register map looks common to every edition — upstream `g7ctl` keeps its
-  variant table to names and PIDs, branches on the variant nowhere, and drives
-  PIDs it has never seen — but that argument is what carried `1004` in, and
-  `1004` is the T4 Kaleid (issue #14). **A confirmed write round-trip, not a
-  resemblance, is what promotes an edition into `CONFIG_PIDS`.** Confirming one
-  would unblock the rest.
+- **Zenless Zone Zero (`105e`).** Recognised and named, no write path yet: no
+  owner has confirmed config reads back correctly on it. The register map is now
+  confirmed on Shadow Ember, Amazon and White Trimode, so it is likely — but an
+  edition earns a write path through evidence from a real pad, not resemblance.
+- **White Trimode writes.** `1003`/`1004` are enabled on an owner's report that
+  every value read back exactly as set on Windows (#9). Nobody has yet watched a
+  write land on one the way `10ba` was tested.
+- **`3537:1004` in mainline `xpad`.** The White Trimode's dock identity collides
+  with xpad's T4 Kaleid entry (`XTYPE_XBOX360`), so the kernel names a docked
+  White Trimode "GameSir T4 Kaleid" and drives its GIP interface with the Xbox
+  360 protocol — no input in games (#14). The fix belongs in xpad (match on the
+  interface class, as its vendor-wide GameSir entries already do); a good
+  upstream contribution.
 - **8BitDo controllers.** Planned; not started.
 
 ---

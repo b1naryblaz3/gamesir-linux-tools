@@ -79,23 +79,26 @@ can't positively identify. Fork it and customize it however you like.
 >
 > **G7 Pro** support was contributed by [@brcly](https://github.com/brcly) and
 > verified on their hardware rather than mine. It covers the **Shadow Ember**
-> edition (`3537:109b` wired, `3537:109c` dongle) and the **Amazon** edition
-> (`3537:10ba` wired, `3537:10bb` dongle — my own pad, write-tested on both).
+> edition (`3537:109b` wired, `3537:109c` dongle), the **Amazon** edition
+> (`3537:10ba` wired, `3537:10bb` dongle — my own pad, write-tested on both) and
+> the **White Trimode** (`3537:1003` wired, `3537:1004` on its charging dock —
+> confirmed by an owner whose settings read back exactly as set on Windows).
 > Deadband moves the transitional `3537:100a`
 > identity to a configuration one automatically; if the pad is showing
 > `3537:1022` instead, hold **SHARE + MENU (☰)** together — note this also resets the active profile's remaps and the Shift layer.
 >
-> The G7 Pro ships in editions that differ only by USB product ID, so **other
-> editions can't be configured yet** — currently the **White Trimode**
-> (`3537:1003`) and **Zenless Zone Zero** (`3537:105e`). Deadband recognises and
-> names both, so input works and the app says configuration isn't supported for
-> that edition rather than failing silently. The register map looks common to
-> every edition, but "looks common" isn't a result: reasoning from the pattern is
-> how `3537:1004` — which is actually the **T4 Kaleid**, a different controller —
-> briefly became a writable identity here and renamed someone's pad
-> ([#14](https://github.com/broroeror/gamesir-linux-tools/issues/14)). So an
-> edition earns a write path by round-tripping one, not by resembling one. This
-> path also still needs confirmation across firmware revisions.
+> The G7 Pro ships in editions that differ only by USB product ID. The
+> **Zenless Zone Zero** edition (`3537:105e`) is recognised but not configured
+> yet; input works and the app says so rather than failing silently.
+>
+> **White Trimode on its dock shows up as a "T4 Kaleid".** `3537:1004` is also
+> the T4 Kaleid's ID in the Linux kernel's `xpad` driver, so the kernel names the
+> pad "GameSir T4 Kaleid" and talks to it with the wrong protocol, and games get
+> no input from it in that mode
+> ([#14](https://github.com/broroeror/gamesir-linux-tools/issues/14)). Nothing
+> about the pad itself has changed. On the **cable** (`3537:1003`) it should
+> work normally, since the kernel only mislabels `1004`. Deadband only treats `1004` as a G7 Pro when the device names itself
+> one, so a real T4 Kaleid is never touched.
 > Other GameSir controllers, other Logitech mice, other dongles, and firmware
 > revisions I haven't seen are **unsupported and untested** and may misbehave. The
 > app won't send config writes to a device it can't positively recognize, but

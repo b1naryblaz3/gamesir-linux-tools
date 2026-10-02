@@ -62,21 +62,32 @@ def _slot_signature_mismatches():
 
 
 def _foreign_pid_claims():
-    """Config identities that belong to a DIFFERENT GameSir product.
+    """Config identities that belong to another GameSir product.
 
-    0x1004 is the T4 Kaleid. It reached CONFIG_PIDS by being inferred from a
-    consecutive-pair pattern rather than observed on a G7 Pro, which meant the
-    app offered to write G7 registers to another controller entirely and a user
-    watched their pad get renamed (issue #14). Inference is how that happens, so
-    the overlap is checked rather than remembered."""
+    An id from OTHER_PRODUCT_PIDS may only be in CONFIG_PIDS if it is also in
+    SHARED_PIDS, i.e. resolved per device by is_g7_device(). 3537:1004 is the
+    case in point: the G7 Pro White Trimode's dock identity AND the T4 Kaleid in
+    mainline xpad. Claiming it blindly would drive a T4 Kaleid as a G7 Pro; this
+    file used to forbid it outright, which wrongly locked White Trimode owners out
+    (issue #14 was the kernel's label for that id, not a Deadband write). So:
+    allow a shared id, but prove the discriminator actually discriminates."""
     try:
         from vendors.gamesir.models.g7pro import protocol as g7
     except Exception:
         return []
-    clash = set(g7.CONFIG_PIDS) & set(getattr(g7, 'OTHER_PRODUCT_PIDS', {}))
-    return [f'3537:{pid:04x} is the {g7.OTHER_PRODUCT_PIDS[pid]}, not a G7 Pro '
-            f'config identity' for pid in sorted(clash)]
-
+    bad = []
+    for pid in set(g7.CONFIG_PIDS) & set(g7.OTHER_PRODUCT_PIDS):
+        name = g7.OTHER_PRODUCT_PIDS[pid]
+        if pid not in g7.SHARED_PIDS:
+            bad.append(f'3537:{pid:04x} is the {name} and has no per-device check')
+            continue
+        if g7.is_g7_device(pid, f'GameSir {name}'):
+            bad.append(f'3537:{pid:04x}: is_g7_device() claims a real {name}')
+        if g7.is_g7_device(pid, None):
+            bad.append(f'3537:{pid:04x}: is_g7_device() claims a device with no name')
+        if not g7.is_g7_device(pid, 'GameSir-G7 Pro'):
+            bad.append(f'3537:{pid:04x}: is_g7_device() rejects a real G7 Pro')
+    return bad
 
 def _udev_pid_gaps():
     """Config identities with no udev rule granting raw USB access.
