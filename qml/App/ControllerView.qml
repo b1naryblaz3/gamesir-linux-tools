@@ -189,7 +189,7 @@ Item {
         }
         Text {
             anchors.centerIn: parent; text: parent.glyph
-            color: parent.on ? "white" : parent.gcol
+            color: parent.on ? Theme.textOnAccent : parent.gcol
             font.family: Theme.fontFamily; font.bold: true
             font.pixelSize: parent.width * 0.46
         }
@@ -245,7 +245,7 @@ Item {
         }
         Text {
             anchors.centerIn: parent; text: parent.glyph
-            color: parent.on ? "white" : "#9AA0AC"
+            color: parent.on ? Theme.textOnAccent : "#9AA0AC"
             font.pixelSize: parent.width * 0.5
         }
     }
@@ -318,7 +318,7 @@ Item {
         }
         Text {
             anchors.centerIn: parent; text: parent.name
-            color: parent.active ? "white" : Theme.textDim
+            color: parent.active ? Theme.textOnAccent : Theme.textDim
             font.family: Theme.fontFamily; font.bold: true; font.pixelSize: parent.height * 0.5
         }
     }

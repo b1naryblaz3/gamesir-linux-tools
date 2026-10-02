@@ -141,6 +141,28 @@ def _doctor_identity_gaps():
             for pid in sorted(known) if pid not in doctor.G7_IDENTITIES]
 
 
+def _qml_handler_named_properties():
+    """QML property declarations whose name looks like a signal handler.
+
+    `property color onAccent` on an object that also has an `accent` property is
+    parsed as the handler for that property, not as a property: a binding
+    expression becomes the handler body, the property keeps its default, and
+    nothing warns. Theme.onAccent sat at #000000 for three months that way. Any
+    `on` + capital-letter property name is the same trap waiting for a sibling."""
+    import re
+    pat = re.compile(r'\bproperty\s+[\w.<>]+\s+(on[A-Z]\w*)')
+    bad = []
+    for root, _dirs, files in os.walk(os.path.join(HERE, 'qml')):
+        for name in files:
+            if name.endswith('.qml'):
+                path = os.path.join(root, name)
+                for i, line in enumerate(open(path, encoding='utf-8'), 1):
+                    m = pat.search(line)
+                    if m and not line.lstrip().startswith('//'):
+                        bad.append(f'{os.path.relpath(path, HERE)}:{i} declares {m.group(1)}')
+    return bad
+
+
 def main():
     from PySide6.QtCore import QUrl
     from PySide6.QtGui import QGuiApplication
@@ -183,8 +205,9 @@ def main():
     foreign = _foreign_pid_claims()
     kind_bad = _connection_kind_gaps()
     doc_bad = _doctor_identity_gaps()
+    qml_on = _qml_handler_named_properties()
     ok = (qml_ok and not slot_bad and not udev_bad and not foreign and not kind_bad
-          and not doc_bad)
+          and not doc_bad and not qml_on)
     print("=== startup smoke test ===")
     print(f"  QML (Main.qml) loaded : {'OK' if qml_ok else 'FAIL — did not load'}")
     print(f"  @Slot signatures      : "
@@ -202,6 +225,10 @@ def main():
     print(f"  diagnostics coverage  : "
           + ('OK' if not doc_bad else f'FAIL — {len(doc_bad)} gap(s)'))
     for m in doc_bad:
+        print(f"      {m}")
+    print(f"  QML on[A-Z] properties: "
+          + ('OK' if not qml_on else f'FAIL — {len(qml_on)} found'))
+    for m in qml_on:
         print(f"      {m}")
     print(f"  foreign PID claims    : "
           + ('OK' if not foreign else f'FAIL — {len(foreign)}'))

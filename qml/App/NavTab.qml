@@ -25,7 +25,7 @@ Item {
         Text {
             text: root.label
             anchors.verticalCenter: parent.verticalCenter
-            color: root.active ? "white" : Theme.textDim
+            color: root.active ? Theme.textOnAccent : Theme.textDim
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontM
             font.weight: root.active ? Font.DemiBold : Font.Normal

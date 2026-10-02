@@ -111,7 +111,7 @@ Item {
                                 Text {
                                     anchors.centerIn: parent
                                     text: tp.keyLabel(modelData.name)
-                                    color: sel ? "white" : Theme.text
+                                    color: sel ? Theme.textOnAccent : Theme.text
                                     font.family: Theme.fontFamily
                                     font.pixelSize: modelData.name.length > 2 ? Theme.fontS : Theme.fontM
                                 }
@@ -145,7 +145,7 @@ Item {
                                 Text {
                                     anchors.centerIn: parent
                                     text: modelData.name
-                                    color: sel ? "white" : Theme.text
+                                    color: sel ? Theme.textOnAccent : Theme.text
                                     font.family: Theme.fontFamily
                                     font.pixelSize: modelData.name.length > 3 ? Theme.fontS : Theme.fontM
                                 }

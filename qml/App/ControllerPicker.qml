@@ -124,21 +124,21 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             wired: modelData.wired
                             live: modelData.live
-                            tint: parent.parent.sel ? "white"
+                            tint: parent.parent.sel ? Theme.textOnAccent
                                                     : (modelData.live ? Theme.text : Theme.warn)
                         }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
                             text: root.displayFor(modelData)
                             opacity: modelData.live ? 1 : 0.6
-                            color: parent.parent.sel ? "white" : Theme.text
+                            color: parent.parent.sel ? Theme.textOnAccent : Theme.text
                             font.family: Theme.fontFamily; font.pixelSize: Theme.fontM
                         }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
                             visible: !modelData.live
                             text: "— " + modelData.status
-                            color: parent.parent.sel ? "white" : Theme.warn
+                            color: parent.parent.sel ? Theme.textOnAccent : Theme.warn
                             opacity: parent.parent.sel ? 0.9 : 1
                             font.family: Theme.fontFamily; font.pixelSize: Theme.fontS
                         }
@@ -163,12 +163,12 @@ Item {
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         text: "🖱"; font.pixelSize: 14
-                        color: parent.parent.sel ? "white" : Theme.accent
+                        color: parent.parent.sel ? Theme.textOnAccent : Theme.accent
                     }
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         text: root.mouseName
-                        color: parent.parent.sel ? "white" : Theme.text
+                        color: parent.parent.sel ? Theme.textOnAccent : Theme.text
                         font.family: Theme.fontFamily; font.pixelSize: Theme.fontM
                     }
                 }

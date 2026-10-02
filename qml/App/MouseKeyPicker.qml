@@ -88,7 +88,7 @@ Item {
                         border.color: on ? Theme.accent : Theme.cardBorder; border.width: 1
                         Text {
                             id: mt; anchors.centerIn: parent; text: modelData.t
-                            color: parent.on ? "white" : Theme.text
+                            color: parent.on ? Theme.textOnAccent : Theme.text
                             font.family: Theme.fontFamily; font.pixelSize: Theme.fontS
                         }
                         TapHandler { onTapped: kp.toggleMod(modelData.m) }
@@ -116,7 +116,7 @@ Item {
                                 border.width: 1
                                 Text {
                                     anchors.centerIn: parent; text: modelData.t
-                                    color: kh.hovered ? "white" : Theme.text
+                                    color: kh.hovered ? Theme.textOnAccent : Theme.text
                                     font.family: Theme.fontFamily
                                     font.pixelSize: modelData.t.length > 2 ? Theme.fontS : Theme.fontM
                                 }

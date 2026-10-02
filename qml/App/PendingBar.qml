@@ -36,7 +36,7 @@ Rectangle {
             color: Theme.accent
             Text { id: sl; anchors.centerIn: parent
                    text: "Save to Profile " + (bridge.profile || "?")
-                   color: "white"; font.family: Theme.fontFamily; font.pixelSize: Theme.fontM
+                   color: Theme.textOnAccent; font.family: Theme.fontFamily; font.pixelSize: Theme.fontM
                    font.weight: Font.DemiBold }
             TapHandler { onTapped: bridge.applyConfig() }
         }

@@ -74,7 +74,15 @@ QtObject {
     function _chan(v) { return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }
     function _lum(c)  { return 0.2126 * _chan(c.r) + 0.7152 * _chan(c.g) + 0.0722 * _chan(c.b) }
     readonly property bool accentIsLight: _lum(accent) > 0.30
-    readonly property color onAccent:     accentIsLight ? "#1A1D24" : "#FFFFFF"
+    //
+    // ⚠ NAMED textOnAccent, NOT onAccent. This object has a property called
+    // `accent`, and next to it QML parses `onAccent` as a SIGNAL HANDLER rather
+    // than a property: a plain value errors ("Cannot assign a value to a
+    // signal"), but an EXPRESSION is silently accepted as the handler body. So
+    // `onAccent` stayed at its default #000000 from July to October, the measured
+    // contrast logic above never ran, and every caller got black. smoke_test now
+    // rejects any `property ... on[A-Z]` declaration.
+    readonly property color textOnAccent: accentIsLight ? "#1A1D24" : "#FFFFFF"
 
     // Ordered list of themeable tokens for the Settings UI (key + label).
     readonly property var themeKeys: [

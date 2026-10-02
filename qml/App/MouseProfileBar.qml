@@ -56,7 +56,7 @@ Row {
                     anchors.verticalCenter: parent.verticalCenter
                     visible: pill.act
                     width: 6; height: 6; radius: 3
-                    color: pill.sel ? "white" : Theme.ok
+                    color: pill.sel ? Theme.textOnAccent : Theme.ok
                 }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
@@ -69,7 +69,7 @@ Row {
                     text: root.compact
                           ? (pill.modelData.name || ("P" + pill.modelData.index))
                           : pill.modelData.label
-                    color: pill.sel ? "white" : Theme.textDim
+                    color: pill.sel ? Theme.textOnAccent : Theme.textDim
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontM
                     font.weight: pill.sel ? Font.DemiBold : Font.Normal
                 }
@@ -79,7 +79,7 @@ Row {
                     visible: pill.editing
                     width: (root.compact ? (pill.modelData.name ? 50 : 28) : 74) - (pill.act ? 11 : 0)
                     maximumLength: 24                 // the mouse stores 24 chars
-                    color: pill.sel ? "white" : Theme.text
+                    color: pill.sel ? Theme.textOnAccent : Theme.text
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontM
                     selectByMouse: true
                     onEditingFinished: if (pill.editing) root.commitRename(pill.modelData.sector, text)

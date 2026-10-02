@@ -23,7 +23,7 @@ Item {
         Text {
             anchors.centerIn: parent
             text: "?"
-            color: hov.hovered ? "white" : Theme.textDim
+            color: hov.hovered ? Theme.textOnAccent : Theme.textDim
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontS
             font.bold: true

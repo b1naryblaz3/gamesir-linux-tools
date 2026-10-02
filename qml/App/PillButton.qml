@@ -13,7 +13,7 @@ Rectangle {
     Behavior on color { ColorAnimation { duration: 100 } }
     Text {
         id: t; anchors.centerIn: parent; text: b.label
-        color: b.highlight ? "white" : Theme.text
+        color: b.highlight ? Theme.textOnAccent : Theme.text
         font.family: Theme.fontFamily; font.pixelSize: Theme.fontM
     }
     HoverHandler { id: hh }

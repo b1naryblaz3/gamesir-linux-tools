@@ -100,7 +100,7 @@ Item {
         Behavior on color { ColorAnimation { duration: 100 } }
         Text {
             id: bt; anchors.centerIn: parent; text: parent.label
-            color: parent.highlight ? "white" : Theme.text
+            color: parent.highlight ? Theme.textOnAccent : Theme.text
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontM
         }
         HoverHandler { id: hh }
