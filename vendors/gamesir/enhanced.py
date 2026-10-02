@@ -76,7 +76,7 @@ def _heartbeat(device, running):
 
 
 def main():
-    import hid
+    import hidcompat as hid
     import threading
 
     devnode, name, hid_name = find_vendor_hidraw()

@@ -122,7 +122,7 @@ def _hidapi_backend():
     backend CANNOT open /dev/hidraw paths, which breaks the whole app while
     enumeration (sysfs) still looks fine."""
     try:
-        import hid
+        import hidcompat as hid
         for d in hid.enumerate():
             p = d.get('path') or b''
             if isinstance(p, bytes):
@@ -210,7 +210,7 @@ def open_ladder(node):
     # rung 2: hidapi open — catches a libusb-backend build that can't take
     # hidraw paths even though the node itself is openable
     try:
-        import hid
+        import hidcompat as hid
         d = hid.device()
         d.open_path(node.encode())
         d.close()
@@ -349,8 +349,9 @@ def collect():
         'verdict': [],
     }
     try:
-        import hid
+        import hidcompat as hid
         rep['hidapi_version'] = getattr(hid, '__version__', '?')
+        rep['hidapi_impl'] = getattr(hid, 'IMPL', 'hidapi (cython)')
     except Exception:
         rep['hidapi_version'] = 'IMPORT FAILED'
     try:
@@ -566,7 +567,7 @@ def format_report(rep):
     L.append(f'- Deadband {rep.get("version", "?")}')
     L.append(f'- OS: {rep["os"]}  (kernel {rep["kernel"]})')
     L.append(f'- Session: {rep["session"]} / {rep["desktop"]}')
-    L.append(f'- Python {rep["python"]}, hidapi {rep.get("hidapi_version", "?")} '
+    L.append(f'- Python {rep["python"]}, {rep.get("hidapi_impl", "hidapi")} {rep.get("hidapi_version", "?")} '
              f'— backend: {rep["hidapi_backend"]}')
     L.append(f'- Raw USB: {rep.get("raw_usb_backend", "?")}')
     for label, r in rep['rules'].items():

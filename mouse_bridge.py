@@ -131,7 +131,7 @@ class MouseBridge(QObject):
         """USB product id of an enumerable G502 X node (no open needed), or None —
         lets us tell wired (0xC098) from the wireless/receiver ids."""
         try:
-            import hid
+            import hidcompat as hid
             for d in hid.enumerate():
                 if d.get('vendor_id') == hidpp.LOGITECH_VID and \
                         d.get('product_id') in (hidpp.G502X_PIDS + (0xC547,)):

@@ -16,7 +16,7 @@ import select
 import struct
 import threading
 import time
-import hid
+import hidcompat as hid   # either python HID library; see hidcompat.py
 
 from gs_common import (find_controllers, pick_live_node, firmware_version,
                        device_bcd, evdev_port, has_live_pad)

@@ -28,7 +28,10 @@ explicit, backed-up, read-back-verified write flow.
 import time
 import glob
 import os
-import hid
+try:                       # either python HID library; see hidcompat.py
+    import hidcompat as hid
+except ImportError:        # run standalone without the repo root on sys.path
+    import hid
 
 # --- HID++ constants ---------------------------------------------------------
 SHORT_ID = 0x10

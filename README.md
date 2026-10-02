@@ -149,6 +149,12 @@ nix run codeberg:Epaphroditus/gamesir-linux-tools-nix
 
 ### Any distro (installer script)
 
+> **SteamOS / Steam Deck:** skip step 1 and go straight to step 2 — don't use
+> `pacman` or `pip` here. `install.sh` detects SteamOS and sets Deadband up in a
+> private Python environment in your home folder (it survives SteamOS updates and
+> changes no system package). It reuses the HID library SteamOS already ships, so
+> nothing needs compiling; the only download is the PySide6 UI toolkit.
+
 1. Install the dependencies. On Arch:
    `sudo pacman -S --needed python pyside6 python-hidapi libusb`. Elsewhere,
    install your distribution's `libusb-1.0` runtime, then:
@@ -161,7 +167,9 @@ nix run codeberg:Epaphroditus/gamesir-linux-tools-nix
    `HIDAPI_WITH_HIDRAW=1` matters: pip's source build otherwise selects the
    libusb backend, which can't open the devices. Building needs `gcc`, the
    Python headers, and libudev (Fedora/Bazzite: `systemd-devel`;
-   Debian/Ubuntu: `build-essential python3-dev libudev-dev`).
+   Debian/Ubuntu: `build-essential python3-dev libudev-dev`). If your distro
+   packages **pyhidapi** (`python-hid` on Arch, PyPI `hid`) instead, that works
+   too and needs no build.
 
 2. Clone and install:
 

@@ -14,7 +14,7 @@ import glob
 import os
 import re
 import time
-import hid
+import hidcompat as hid   # either python HID library; see hidcompat.py
 
 VENDOR_VID = 0x3537   # GameSir native vendor interface
 REPORT_LEN = 64       # 0x0F output report = report ID + 63 payload bytes

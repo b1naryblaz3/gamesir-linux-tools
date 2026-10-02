@@ -36,42 +36,71 @@ confirm() {
 }
 
 # 1. dependencies -----------------------------------------------------------
-# SteamOS needs a different install route entirely; see below.
+# Which Python runs the app. Everywhere but SteamOS that's the system python3.
+PY=python3
+# SteamOS needs a different route entirely, for three reasons that each broke
+# an earlier version of this script:
+#   * pacman is there but must not be used: python-hidapi conflicts with
+#     python-hid, which jupiter-hw-support (the Deck's own hardware support)
+#     depends on, and the read-only rootfs reverts on update anyway (#13).
+#   * there is no `pip` command (#19).
+#   * there is no compiler or headers, so hidapi can't be built from source.
+# So on SteamOS the app runs from a private virtual environment in ~/.local
+# (survives updates, touches no system package). It bootstraps its own pip from
+# Python's bundled ensurepip, installs only PySide6 into it, and sees the
+# system's python-hid through --system-site-packages; hidcompat.py adapts that
+# library, so no hidapi build is needed at all.
 _STEAMOS=0
 if grep -qs '^ID=steamos' /etc/os-release || command -v steamos-readonly >/dev/null; then
   _STEAMOS=1
 fi
-missing=()
-command -v python3 >/dev/null || missing+=("python")
-python3 -c 'import PySide6' 2>/dev/null || missing+=("pyside6")
-python3 -c 'import hid'     2>/dev/null || missing+=("python-hidapi")
-python3 -c 'import ctypes.util; assert ctypes.util.find_library("usb-1.0")' \
-  2>/dev/null || missing+=("libusb")
+VENV="$HOME/.local/share/$APP_ID/venv"
+if [ "$_STEAMOS" = 1 ] && [ -x "$VENV/bin/python" ]; then
+  PY="$VENV/bin/python"          # re-run: reuse the environment we made before
+fi
+
+check_deps() {
+  missing=()
+  command -v python3 >/dev/null || missing+=("python")
+  "$PY" -c 'import PySide6' 2>/dev/null || missing+=("pyside6")
+  "$PY" -c 'import hid'     2>/dev/null || missing+=("python-hidapi")
+  "$PY" -c 'import ctypes.util; assert ctypes.util.find_library("usb-1.0")' \
+    2>/dev/null || missing+=("libusb")
+}
+check_deps
+
 if [ ${#missing[@]} -ne 0 ]; then
   echo
   echo "==> Missing dependencies: ${missing[*]}"
-  # SteamOS has pacman but must not be installed into with it. Its python-hidapi
-  # conflicts with python-hid, which jupiter-hw-support depends on, so pacman
-  # offers to remove a package that holds the Steam Deck's own hardware support
-  # together and then refuses the transaction anyway (issue #13). And even where
-  # it succeeds, the rootfs is read-only and reverts on the next SteamOS update,
-  # so anything installed that way silently disappears. ~/.local survives both.
-  if [ "${_STEAMOS:-0}" = 1 ]; then
-    echo "    Detected SteamOS. Installing with pacman here would conflict with"
-    echo "    jupiter-hw-support (Steam Deck hardware support) and would be wiped"
-    echo "    by the next SteamOS update anyway, so these go in ~/.local instead,"
-    echo "    which survives updates:"
-    echo "        pip install --user --break-system-packages PySide6"
-    echo "        HIDAPI_WITH_HIDRAW=1 pip install --user --break-system-packages \\"
-    echo "            --no-binary :all: hidapi"
-    echo "    (--break-system-packages only means 'outside pacman'; it installs"
-    echo "     into your home directory and touches no system package.)"
-    if confirm "    Run that now?"; then
-      pip install --user --break-system-packages PySide6
-      HIDAPI_WITH_HIDRAW=1 pip install --user --break-system-packages \
-        --no-binary :all: hidapi
+  if [ "$_STEAMOS" = 1 ]; then
+    echo "    Detected SteamOS. System packages can't be changed safely here, so"
+    echo "    Deadband gets its own private Python environment in your home folder:"
+    echo "        $VENV"
+    echo "    It survives SteamOS updates and touches no system package. Only"
+    echo "    PySide6 (the UI toolkit, roughly a 200 MB download) goes into it;"
+    echo "    the controller library SteamOS already ships is reused."
+    if confirm "    Set that up now?"; then
+      mkdir -p "$(dirname "$VENV")"
+      if ! python3 -m venv --system-site-packages "$VENV"; then
+        # ensurepip missing from this Python: make the environment without pip,
+        # then fetch pip's official bootstrap script into it.
+        echo "    Python's bundled pip isn't available; fetching pip's official"
+        echo "    installer (bootstrap.pypa.io) into the private environment instead."
+        rm -rf "$VENV"
+        python3 -m venv --system-site-packages --without-pip "$VENV"
+        curl -fsSL https://bootstrap.pypa.io/get-pip.py | "$VENV/bin/python"
+      fi
+      "$VENV/bin/python" -m pip install --upgrade PySide6
+      PY="$VENV/bin/python"
+      check_deps
+      if [ ${#missing[@]} -ne 0 ]; then
+        echo "    !! Still missing: ${missing[*]}"
+        echo "    Please open an issue with that line and the output above."
+        exit 1
+      fi
+      echo "    Done — dependencies are in place."
     else
-      echo "    Skipped. Install them yourself, then re-run this script."; exit 1
+      echo "    Skipped. Re-run this script when you're ready."; exit 1
     fi
   elif command -v pacman >/dev/null; then
     echo "    These can be installed with (uses sudo):"
@@ -89,6 +118,7 @@ if [ ${#missing[@]} -ne 0 ]; then
     echo "   (The HIDAPI_WITH_HIDRAW=1 matters: pip's source build DEFAULTS to the"
     echo "    libusb backend, which cannot open the controller. Building needs gcc,"
     echo "    python3-devel and libudev headers — Fedora/Bazzite: systemd-devel.)"
+    echo "   A distro package of python-hid (pyhidapi) works too, instead of hidapi."
     exit 1
   fi
 fi
@@ -97,7 +127,7 @@ fi
 # `import hid` succeeding is not enough: a source-built pip hidapi DEFAULTS to
 # the libusb backend, which cannot open /dev/hidraw — the app then finds the
 # controller but every open fails. Catch that here, not at first run.
-backend="$(python3 -c "import sys; sys.path.insert(0, '$REPO')
+backend="$("$PY" -c "import sys; sys.path.insert(0, '$REPO')
 from doctor import _hidapi_backend; print(_hidapi_backend())" 2>/dev/null || echo unknown)"
 case "$backend" in
   libusb*)
@@ -113,7 +143,7 @@ case "$backend" in
     if confirm "    Try that rebuild now?"; then
       HIDAPI_WITH_HIDRAW=1 pip install --user --force-reinstall \
         --no-cache-dir --no-binary :all: hidapi
-      backend="$(python3 -c "import sys; sys.path.insert(0, '$REPO')
+      backend="$("$PY" -c "import sys; sys.path.insert(0, '$REPO')
 from doctor import _hidapi_backend; print(_hidapi_backend())" 2>/dev/null || echo unknown)"
       case "$backend" in
         hidraw*) echo "    Rebuilt OK — hidraw backend active." ;;
@@ -161,7 +191,7 @@ fi
 mkdir -p "$BIN"
 cat > "$BIN/$APP_ID" <<EOF
 #!/usr/bin/env bash
-exec python3 "$REPO/deadband.py" "\$@"
+exec "$PY" "$REPO/deadband.py" "\$@"
 EOF
 chmod +x "$BIN/$APP_ID"
 
