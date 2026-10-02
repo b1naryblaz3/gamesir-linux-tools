@@ -292,10 +292,21 @@ Window {
                 // widest live content.
                 ProfileBar { compact: win.width < 1320; visible: win.activeDevice === "controller" }
 
+                // The G7 Pro's config session toggle. It reports a STATE (while it's
+                // claimed, games can't see the controller), so it carries a warn dot
+                // rather than the accent fill: in that row, accent means "the profile
+                // you're editing", and a filled button here read as a fifth profile.
+                Rectangle {
+                    visible: g7Session.visible
+                    Layout.alignment: Qt.AlignVCenter
+                    width: 1; height: 22; color: Theme.cardBorder
+                }
                 PillButton {
+                    id: g7Session
                     visible: win.activeDevice === "controller" && bridge.isG7Pro
+                    Layout.alignment: Qt.AlignVCenter
                     label: bridge.configClaimed ? "Release to games" : "Configure controller"
-                    highlight: bridge.configClaimed
+                    statusDot: bridge.configClaimed ? Theme.warn : "transparent"
                     onClicked: bridge.setConfigClaimed(!bridge.configClaimed)
                 }
 

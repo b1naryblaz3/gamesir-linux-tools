@@ -15,10 +15,21 @@ Item {
     Component.onCompleted: seed()
     Connections { target: bridge; function onConfigLoaded() { page.seed() } }
 
+    // Same frame as VibrationPage (and the other tabs): fill the page, top-aligned,
+    // with the pending bar's space always reserved. This used to centre a narrow
+    // column in the middle of the window, leaving the only page laid out that way
+    // with a large empty band above its first card.
     ColumnLayout {
-        anchors.centerIn: parent
-        width: Math.min(500, parent.width - 40)
+        anchors.fill: parent
+        anchors.margins: 20
+        anchors.bottomMargin: pbar.height + 30   // reserve bar space always (no reflow)
         spacing: 14
+
+        ColumnLayout {
+        Layout.alignment: Qt.AlignHCenter
+        Layout.topMargin: 10
+        Layout.preferredWidth: 460
+        spacing: 16
 
         Card {
             Layout.fillWidth: true
@@ -62,10 +73,14 @@ Item {
                 }
             }
         }
+        }
+        Item { Layout.fillHeight: true }
     }
 
     PendingBar {
-        anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
-        anchors.margins: 20
+        id: pbar
+        anchors.left: parent.left; anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.leftMargin: 20; anchors.rightMargin: 20; anchors.bottomMargin: 20
     }
 }
