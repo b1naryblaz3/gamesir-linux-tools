@@ -18,7 +18,8 @@ re-tread them. This is a hobby RE effort; corrections and additions welcome.
 | **Cyclone 2** *(GameSir, VID 0x3537)* | `0575` / `100b` / `1053` | ✅ vendor `0x12` | ✅ full | **Fully supported** |
 | **G7 Pro** *(Shadow Ember, Amazon)* | `109b` (wired config) · `109c` (dongle config) · `10ba` / `10bb` (Amazon wired / dongle config) · `100a` (transition) · `1022` (native/GIP) · `1003` / `1004` (White Trimode wired / dock; 1004 shared with the T4 Kaleid) · `105e` (recognised, detect-only) | ✅ evdev or claimed USB telemetry | ✅ four profiles + core/extras | **Writes on 109b/109c/10ba/10bb/1003/1004** — 109b/109c contributed and verified by [@brcly](https://github.com/brcly); 10ba/10bb write round-trip verified on my own pad; 1003/1004 confirmed by an owner (#9) |
 | G7 SE *(not owned)* | `1010` | ✅ mainline `xpad` | n/a | Reference only |
-| **G7 Pro 8K PC** | `10c5`–`10c8` edition pairs | ✅ vendor `0x12` | ✅ full incl. motion/macros/lights | **Fully supported** |
+| **G7 Pro 8K PC** | `10c5`–`10c8` + `1032`/`1033` (Royal2) edition pairs | ✅ vendor `0x12` | ✅ full incl. motion/macros/lights | **Fully supported** |
+| **Tarantula Pro 8K** | `103d` (PC/XBOX mode) · `103c` (auto-detected non-PC mode, no config) | ✅ vendor `0x12` | ✅ rebinds (9 extras), macros, sticks, triggers, motion, poll rate — no lighting yet | **Supported**, write round-trip verified on my own pad |
 | **G502 X LIGHTSPEED** *(Logitech, VID 0x046d)* | `c098` (wired) · `409f` / `c547` (receiver) | ✅ standard HID | ✅ full — profiles, G-Shift, DPI, macros | **Fully supported** |
 | 8BitDo *(future)* | — | — | — | Not started |
 
@@ -122,7 +123,53 @@ directional/mouse stick output, G7 motion configuration, Bluetooth, and the nati
 
 ---
 
-## GameSir Tarantula 8K — `3537:103c` — input identified, config channel unproven
+## GameSir Tarantula Pro 8K — supported in PC mode (`3537:103d`)
+
+**✅ Resolved 2026-10-02.** The "dead channel" below was a property of the
+`103c` identity, not of the pad. The Tarantula auto-detects its host (GameSir's
+manual); Windows put it in **PC/XBOX mode, `3537:103d`**, where it speaks the
+ordinary family protocol on its HID interface — read `0f 04`, write `0f 03`,
+profile `0f 07`/`0f 0b`, firmware `0f 09`. The pad kept that mode when moved back
+to Linux, and every command answered there.
+
+Its register map is **the 8K's plus five more `0xa9`-byte button blocks** (nine
+programmable buttons: L4 R4 C1 C2 C3 C4 T1 T2 T3), so everything after the blocks
+sits `5 × 0xa9 = 0x34d` higher. Decoded from 18 Windows USB captures of GameSir
+Connect v1.16.7 (kept privately with the other raw captures):
+
+| What | Where / encoding |
+|---|---|
+| Profiles | banks 1–4 (the manual's four configurations); a bank 5 exists, role unknown |
+| Poll rate | `0x002e`, codes 0–5 = 250 / 500 / 1000 / 2000 / 4000 / 8000 Hz — **the pad re-enumerates on change** |
+| Standard remaps | the Cyclone's slots (A `0x007a`), `[enable, target]` |
+| Programmable-button blocks | L4 `0x00b2`, R4 `0x015b`, C1 `0x0204`, C2 `0x02ad`, C3 `0x0356`, C4 `0x03ff`, T1 `0x04a8`, T2 `0x0551`, T3 `0x05fa` |
+| Block layout | +0 remap enable · +1…+4 target(s) ("multiple" fills +2 onward) · +5 macro enable · +6/+7 unknown 16-bit · +8 step count · +9… steps `[target, hold BE16, delay BE16]` × 32 |
+| Sticks / triggers / motion | the 8K's blocks + `0x34d` (LS deadzone `0x06e4`, motion activation `0x0729`) |
+| Lighting (global, bank `0x20`) | mode `0x0000`; logo hue/sat/brightness around `0x0011`–`0x0012` — partly mapped |
+
+Target codes are the family's (D-pad `01`–`04`, LB/RB `05`/`06`, LS/RS `07`/`08`,
+A/B/X/Y `09`–`0c`, LT/RT `13`/`14`, none `ff`, plus the shared keyboard and mouse
+tables), with **View `0e`, Menu `0f`, Screenshot `10` and Shift layer `e7`** added.
+
+GameSir Connect's stick macros are **recorded by the pad**
+(`0f 16 11 01` start / `02` stop, read back with opcode `0f 10`), quantised to
+full-strength directions: left stick up `0x15`, down `0x16`, left `0x17`,
+up-left `0x2c`, up-right `0x2d` (right is predicted `0x18`). A partial push is
+stored as the full direction — there is no magnitude in the step format.
+
+**Verified on the project's own pad (firmware 2.42), through the app:** a read of
+every field matching a raw dump; then remaps (A → B, C1 → X), an L4 macro, a stick
+deadzone save, a poll-rate change (the pad re-enumerates and Deadband reconnects),
+and the gyro driving the left stick — each confirmed in an external gamepad
+tester or by the app's read-back. Restored afterwards: a full dump showed **zero
+setting differences** from the pre-test backup (only the stick curve tables,
+which the pad recomputes itself, moved).
+
+Not yet: lighting (top-button modes + the logo's hue/saturation/brightness live in
+bank `0x20` and are only partly mapped), and the pad's fifth bank (possibly the
+Shift layer).
+
+### 2026-09-30 notes — the `103c` mode (still accurate for that mode)
 
 Measured live on 2026-09-30 by reading report descriptors and a 20-second
 passive capture. **Nothing has been written to this controller.** Recording it

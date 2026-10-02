@@ -74,8 +74,14 @@ can't positively identify. Fork it and customize it however you like.
 
 > ### ⚠️ Tested hardware
 > Everything here has only been developed and verified on a **GameSir Cyclone 2**,
-> a **GameSir G7 Pro 8K PC**, and a **Logitech G502 X LIGHTSPEED** mouse — **nothing
-> else.**
+> a **GameSir G7 Pro 8K PC**, a **GameSir Tarantula Pro 8K**, and a **Logitech G502 X
+> LIGHTSPEED** mouse — **nothing else.**
+>
+> The **Tarantula Pro 8K** is configured in its PC mode, `3537:103d`: rebinds for all
+> nine extra buttons (L4, R4, C1–C4, T1–T3), macros, sticks, triggers, gyro and
+> poll rate. Lighting isn't supported yet. If it shows up as `3537:103c` instead, it
+> has auto-detected a different platform; GameSir's manual switches it to PC mode
+> with **Home + X held for 2 seconds**.
 >
 > **G7 Pro** support was contributed by [@brcly](https://github.com/brcly) and
 > verified on their hardware rather than mine. It covers the **Shadow Ember**
@@ -284,7 +290,8 @@ everything it does is **reversible** and stays **on your machine**. The specific
   online.
 - **Permissions.** Prefer the udev rule (per-user `uaccess`) over running as root —
   see [Running](#running). Under `sudo`, `~` is `/root`, so backups land there.
-- **Tested hardware.** Cyclone 2, G7 Pro 8K PC and the G502 X are verified here.
+- **Tested hardware.** Cyclone 2, G7 Pro 8K PC, Tarantula Pro 8K (`3537:103d`) and the
+  G502 X are verified here.
   G7 Pro support was contributed and verified by [@brcly](https://github.com/brcly)
   on the Shadow Ember edition (wired `3537:109b`, dongle `3537:109c`; `3537:100a`
   is transitioned automatically — hold SHARE + MENU if the pad is showing
