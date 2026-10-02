@@ -136,6 +136,42 @@ def _hidapi_backend():
         return f'unknown (hid.enumerate failed: {e})'
 
 
+def _vendor_channel(hidraw_sysfs):
+    """What vendor channel a HID node DECLARES, from its report descriptor in
+    sysfs (no permissions needed, nothing sent to the device).
+
+    -> 'pages 0xfff0/0xff00, report ids 0x0f 0x10 0x12', 'none declared', or
+    '' if unreadable. Report ids are those declared while a vendor usage page
+    (0xff00 and up) is current. This is what tells a new pad's protocol apart:
+    the Cyclone family declares 0xfff0 with 0x0f/0x10/0x12, the Tarantula 8K
+    0xa2/0x43 -- and it used to need a shell one-liner from the user to see."""
+    try:
+        with open(os.path.join(hidraw_sysfs, 'device', 'report_descriptor'), 'rb') as f:
+            desc = f.read()
+    except OSError:
+        return ''
+    pages, ids, vendor, i = [], [], False, 0
+    while i < len(desc):
+        b = desc[i]
+        if b == 0xFE:                          # long item: skip it whole
+            i += 3 + (desc[i + 1] if i + 1 < len(desc) else 0)
+            continue
+        size = (b & 0x03) if (b & 0x03) != 3 else 4
+        val = int.from_bytes(desc[i + 1:i + 1 + size], 'little')
+        if (b & 0xFC) == 0x04:                 # Usage Page (global)
+            vendor = val >= 0xFF00
+            if vendor and val not in pages:
+                pages.append(val)
+        elif (b & 0xFC) == 0x84 and vendor:    # Report ID (global)
+            if val not in ids:
+                ids.append(val)
+        i += 1 + size
+    if not pages:
+        return 'none declared'
+    return ('pages ' + '/'.join(f'{p:#06x}' for p in pages)
+            + (', report ids ' + ' '.join(f'{r:#04x}' for r in ids) if ids else ''))
+
+
 def _sysfs_nodes():
     """Every /dev/hidrawN owned by a vendor we care about, from sysfs (needs no
     permissions — the same enumeration the app's detection uses).
@@ -169,7 +205,8 @@ def _sysfs_nodes():
         except Exception:
             usb_path = ''
         out.append({'node': node, 'vid': vid, 'pid': pid,
-                    'product': product, 'usb_path': usb_path})
+                    'product': product, 'usb_path': usb_path,
+                    'vendor_channel': _vendor_channel(path) if vid == 0x3537 else ''})
     return out
 
 
@@ -598,6 +635,8 @@ def format_report(rep):
         L.append(f'    perms: {n["perms"]}')
         L.append(f'    os.open: {n["os_open"]}   hidapi: {n["hid_open"]}'
                  f'   → {n["verdict"].upper()}')
+        if n.get('vendor_channel'):
+            L.append(f'    vendor channel: {n["vendor_channel"]}')
     for n in rep.get('evdev', []):
         if n.get('error'):
             L.append(f'- {n["node"]}  "{n["name"]}"  cannot open: {n["error"]}')
