@@ -224,7 +224,7 @@ Item {
                     Item { width: parent.width - 130 - wakeSw.width; height: 1 }
                     ToggleSwitch { id: wakeSw; onToggled: bridge.setPickupWake(wakeSw.checked) }
                 }
-                Text { text: "Sleep when inactive"; color: Theme.textDim
+                Text { text: "Sleep timer"; color: Theme.textDim
                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontS }
                 Flow {
                     width: parent.width; spacing: 6
