@@ -1,11 +1,11 @@
 import QtQuick
 import QtQuick.Layouts
 
-// Vibration strength (L/R) + poll rate, staged through the config pending/save
-// queue, plus a live rumble test (fires immediately).
+// Vibration strength (L/R) (+ the G7 Pro's trigger motors), staged through the
+// config pending/save queue, plus a live rumble test (fires immediately).
+// Poll rate used to live here; it's now the dropdown in the tab row (Main.qml).
 Item {
     id: page
-    property int poll: 2
     property int trigL: 0
     property int trigR: 0
     property bool forceL: false
@@ -16,7 +16,7 @@ Item {
     function seed() {
         var c = bridge.config
         if (c.vib_l === undefined) return
-        vibL.value = c.vib_l; vibR.value = c.vib_r; page.poll = c.poll
+        vibL.value = c.vib_l; vibR.value = c.vib_r
         if (bridge.isG7Pro) {
             trigL = c.vib_trigger_l; trigR = c.vib_trigger_r
             forceL = c.vib_force_l; syncL = c.vib_sync_l
@@ -137,22 +137,6 @@ Item {
                 }
             }
 
-            Card {
-                title: "Poll rate"; Layout.fillWidth: true
-                Flow {
-                    width: parent.width; spacing: 8
-                    Repeater {
-                        model: bridge.pollRates
-                        delegate: PillButton {
-                            required property string modelData
-                            required property int index
-                            label: modelData
-                            highlight: page.poll === index
-                            onClicked: { page.poll = index; bridge.setPoll(index) }
-                        }
-                    }
-                }
-            }
         }
         Item { Layout.fillHeight: true }
     }

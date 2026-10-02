@@ -33,6 +33,17 @@ Window {
         ? ["Rebinds", "Sticks", "Triggers", "Vibration", "Device"]
         : ["Rebinds", "Sticks", "Motion", "Triggers", "Vibration", "Lights", "Macros"]
     readonly property var mouseTabs: ["Buttons", "DPI", "Macros"]
+    // Staged poll-rate choice shown by the tab-row dropdown. Seeded from the
+    // profile's read-back config; configLoaded also fires on Discard, so a
+    // discarded change snaps the dropdown back too.
+    property int pollIndex: -1          // -1 = not read yet; the dropdown shows "—"
+    Connections {
+        target: bridge
+        function onConfigLoaded() {
+            var c = bridge.config
+            if (c.poll !== undefined) win.pollIndex = c.poll
+        }
+    }
     readonly property var tabs: activeDevice === "mouse" ? mouseTabs : controllerTabs
     // Card vertical-compression is global (only one page shows at a time); reset it
     // to full on every tab switch so the newly-shown page's FitScroll re-fits from
@@ -482,6 +493,26 @@ Window {
                         active: win.currentTab === index
                         onClicked: win.currentTab = index
                     }
+                }
+                // Poll rate lives in the tab row rather than on a page: it's about
+                // how often the controller reports EVERY input, so no single tab
+                // owns it (it used to sit on Vibration, where nobody would look).
+                // It's stored PER PROFILE, so it sits beside the profile-driven
+                // tabs and follows the profile bar, and it's staged like any other
+                // edit -- the pending bar picks it up from whichever tab is open.
+                Rectangle {
+                    visible: pollDrop.visible
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 1; height: 22; color: Theme.cardBorder
+                }
+                DropdownButton {
+                    id: pollDrop
+                    visible: win.activeDevice === "controller" && bridge.pollRates.length > 0
+                    anchors.verticalCenter: parent.verticalCenter
+                    label: "Poll rate"
+                    model: bridge.pollRates
+                    currentIndex: win.pollIndex
+                    onActivated: (i) => { win.pollIndex = i; bridge.setPoll(i) }
                 }
             }
             Rectangle { anchors.bottom: parent.bottom; width: parent.width
