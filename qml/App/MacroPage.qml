@@ -5,7 +5,8 @@ import App 1.0
 
 // Per-paddle macro editor. Pick a back paddle, switch the macro on, then build a
 // sequence of button events (each with a hold + delay time). Applies immediately
-// to the active profile bank. Shared by the Cyclone (L4/R4) and 8K (L4/R4/L5/R5).
+// to the active profile bank -- the one tab that doesn't stage edits, and the page
+// says so on screen. Shared by the Cyclone (L4/R4) and 8K (L4/R4/L5/R5).
 Item {
     id: page
 
@@ -137,6 +138,16 @@ Item {
                     onToggled: { page.enable = macroSw.checked
                                  bridge.setMacroEnable(page.paddle, macroSw.checked) }
                 }
+            }
+
+            // Every other config tab stages edits until Save to Profile. Macros
+            // don't (each edit is a verified multi-step write to the paddle's
+            // block), so say so rather than let the other tabs' habit mislead.
+            Text {
+                width: parent.width; wrapMode: Text.WordWrap
+                text: "Macros are saved to the controller as you edit them; there's no Save step on this tab."
+                color: Theme.textDim
+                font.family: Theme.fontFamily; font.pixelSize: Theme.fontS
             }
 
             RowLayout {

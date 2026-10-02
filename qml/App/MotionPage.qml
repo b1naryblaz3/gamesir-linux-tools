@@ -7,7 +7,8 @@ import App 1.0
 // capability props: the 8K has Aim+Tilt, 3-button activation, Roll/Y/Yaw inverts
 // (gated by the X-axis mode), a sensitivity slider and 16-bit deadzone maxima; the
 // Cyclone is a compact variant (Aim only, single activation button, X/Y inverts,
-// no sensitivity, byte deadzones). All controls write immediately.
+// no sensitivity, byte deadzones). Edits are STAGED like the other config pages:
+// they wait in the pending bar for Save to Profile, and Discard puts them back.
 Item {
     id: page
 
@@ -97,6 +98,7 @@ Item {
         id: scroller
         anchors.fill: parent
         anchors.margins: 20
+        anchors.bottomMargin: pbar.height + 30
         content: fitBox
 
         Column {
@@ -364,5 +366,12 @@ Item {
         current: page.dirEdit >= 0 && page.cur.dir_macros ? page.cur.dir_macros[page.dirEdit] : -1
         function open(i) { page.dirEdit = i; mode = "buttons" }
         onPicked: function (code) { if (page.dirEdit >= 0) page.setDir(page.dirEdit, code) }
+    }
+
+    PendingBar {
+        id: pbar
+        anchors.left: parent.left; anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.leftMargin: 20; anchors.rightMargin: 20; anchors.bottomMargin: 20
     }
 }

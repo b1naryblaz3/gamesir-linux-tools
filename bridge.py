@@ -12,6 +12,7 @@ Two cadences:
   * status (~4  Hz) - connection, battery, profile, firmware, mode warning.
 """
 
+import copy
 import os
 import threading
 import time
@@ -195,9 +196,15 @@ class GamesirBridge(QObject):
         self._l8_loaded = False
         self._l8_loading = False
 
-        # 8K motion (gyro Aim/Tilt), per-profile bank. Loaded once per profile;
-        # writes apply immediately, so we re-read only on a profile/controller change.
+        # 8K motion (gyro Aim/Tilt), per-profile bank. Loaded once per profile.
+        # Edits are STAGED like every other config page (Save / Discard): the
+        # setters update self._m so the page shows the staged value, and
+        # self._m_loaded keeps what was last read from the pad so Discard can
+        # put the page back. Motion used to write on every click, the one page
+        # (with Macros) where "nothing changes until you Save" wasn't true.
         self._m = {}
+        self._m_loaded = {}
+        self._m_dirty = False
         self._m_profile = None          # profile the loaded motion state belongs to
         self._m_loading = False
 
@@ -332,6 +339,8 @@ class GamesirBridge(QObject):
         self.light8kLoaded.emit()
         # 8K motion: force a reload for the newly-bound unit / profile
         self._m = {}
+        self._m_loaded = {}
+        self._m_dirty = False
         self._m_profile = None
         self._m_loading = False
         self.motionLoaded.emit()
@@ -474,22 +483,20 @@ class GamesirBridge(QObject):
         self._m_loading = False
         self._m = {name: motion.decode_section(mp, vals, off)
                    for name, off in motion.sections(mp)}
+        self._m_loaded = copy.deepcopy(self._m)
+        self._m_dirty = False
         self.motionLoaded.emit()
 
-    def _write_motion(self, addr, data):
-        """Immediate profile-bank write for a motion field (threaded, pinned to
-        the current write-style + session so a controller switch can't misroute)."""
+    def _write_motion(self, addr, data, label='Gyro', display=''):
+        """STAGE a motion field for the next Save (it used to write immediately).
+        Keyed by address like every staged edit, so repeated changes to one field
+        -- or to a shared slot -- merge into a single write whose read-back
+        verify expects the final value. Tagged kind='motion' so Apply doesn't
+        fold it into the stick/trigger config cache, which matches by address."""
         if not self._has_motion():
             return
-        bank = self._prof.profile_bank(state['profile'])
-        if bank is None:
-            return
-        style = self._prof.write_style
-        gen = control.generation()
-        threading.Thread(
-            target=lambda: control.write_reg(bank, addr, list(data),
-                                             write_style=style, gen=gen),
-            daemon=True).start()
+        self._queue(addr, list(data), label, display, kind='motion')
+        self._m_dirty = True
 
     def _has_macros(self):
         return profiles.is_recognized() and self._prof.has_macros
@@ -1365,6 +1372,14 @@ class GamesirBridge(QObject):
     def motionTilt(self):
         return self._m.get('Tilt', {})
 
+    # Pending-list labels for motion fields ("Gyro Aim · Deadzone min").
+    _MOTION_LABELS = {
+        'act_method': 'Activation', 'xaxis': 'Rotation axis', 'output': 'Output',
+        'xy_scale': 'X/Y balance', 'sens': 'Sensitivity',
+        'dz_min': 'Deadzone min', 'dz_max': 'Deadzone max',
+        'adz_min': 'Anti-deadzone min', 'adz_max': 'Anti-deadzone max',
+    }
+
     def _motion_off(self, section):
         for name, off in motion.sections(self._mp()):
             if name == section:
@@ -1379,7 +1394,9 @@ class GamesirBridge(QObject):
         if off is None or table is None or field not in mp or not (0 <= idx < len(table)):
             return
         self._m.get(section, {})[field] = idx
-        self._write_motion(mp[field] + off, [table[idx][1]])
+        self._write_motion(mp[field] + off, [table[idx][1]],
+                           'Gyro %s · %s' % (section, self._MOTION_LABELS.get(field, field)),
+                           table[idx][0])
 
     @Slot(str, str, int)
     def setMotionValue(self, section, field, value):
@@ -1390,7 +1407,9 @@ class GamesirBridge(QObject):
             return
         value = max(0, min(100, int(value)))
         self._m.get(section, {})[field] = value
-        self._write_motion(addr + off, [value])
+        self._write_motion(addr + off, [value],
+                           'Gyro %s · %s' % (section, self._MOTION_LABELS.get(field, field)),
+                           '%d%%' % value)
 
     @Slot(str, str, int)
     def setMotionDeadzone(self, section, field, pct):
@@ -1409,11 +1428,18 @@ class GamesirBridge(QObject):
             data = motion.dz_max_bytes(pct, wide)
         else:
             data = motion.dz_min_bytes(pct)
-        self._write_motion(addr + off, data)
+        self._write_motion(addr + off, data,
+                           'Gyro %s · %s' % (section, self._MOTION_LABELS.get(field, field)),
+                           '%d%%' % pct)
 
     def _write_curve(self, section, type_idx, intensity, custom_pts=None):
-        """Write the full curve block (type + intensity + recomputed LUT) — the
-        firmware shapes from the LUT, so type/intensity bytes alone do nothing."""
+        """Stage the full curve block (type + intensity + points) — the firmware
+        shapes from the LUT, so type/intensity bytes alone do nothing.
+
+        Every curve edit, a custom point drag included, stages the WHOLE block at
+        the curve's base address. Separate point writes would overlap the block,
+        and Apply's read-back verify would then report the block as a mismatch
+        (its bytes would include the point's)."""
         off = self._motion_off(section); mp = self._mp()
         if off is None or 'curve' not in mp:
             return
@@ -1421,12 +1447,22 @@ class GamesirBridge(QObject):
         sec = self._m.get(section, {})
         sec['curve_type'] = type_idx
         sec['curve_int'] = intensity
-        if type_idx == 3:                      # custom: set type only, keep points
-            self._write_motion(mp['curve'] + off, [motion.CURVE_TYPES[3][1]])
+        name = motion.CURVE_TYPES[type_idx][0] if 0 <= type_idx < len(motion.CURVE_TYPES) else '?'
+        if type_idx == 3:                      # custom: keep the current points
+            pts = sec.get('curve_points') or []
+            if len(pts) < npts:                # points never read: type byte only
+                self._write_motion(mp['curve'] + off, [motion.CURVE_TYPES[3][1]],
+                                   'Gyro %s · Response curve' % section, name)
+                return
+            blk = list(motion.curve_block(npts, 0, intensity))
+            blk[0] = motion.CURVE_TYPES[3][1]
+            for i, (x, y) in enumerate(pts[:npts]):
+                blk[2 + 2 * i] = x; blk[3 + 2 * i] = y
         else:
-            blk = motion.curve_block(npts, type_idx, intensity)
+            blk = list(motion.curve_block(npts, type_idx, intensity))
             sec['curve_points'] = [[blk[2 + 2 * i], blk[3 + 2 * i]] for i in range(npts)]
-            self._write_motion(mp['curve'] + off, blk)
+        self._write_motion(mp['curve'] + off, blk, 'Gyro %s · Response curve' % section,
+                           '%s %d%%' % (name, intensity) if type_idx in (1, 2) else name)
 
     @Slot(str, int)
     def setMotionCurveType(self, section, idx):
@@ -1450,7 +1486,7 @@ class GamesirBridge(QObject):
             pts = [list(p) for p in sec.get('curve_points', [])]
             if idx < len(pts):
                 pts[idx] = [x, y]; sec['curve_points'] = pts
-        self._write_motion(mp['curve'] + 2 + 2 * idx + off, [x, y])
+        self._write_curve(section, 3, self._m.get(section, {}).get('curve_int', 100))
 
     @Slot(str, int, bool)
     def setMotionButton(self, section, code, on):
@@ -1473,7 +1509,9 @@ class GamesirBridge(QObject):
             i = slots.index(code)
             slots[i] = motion.ACT_BTN_EMPTY
         sec['act_slots'] = slots
-        self._write_motion(slots_addr[i] + off, [slots[i]])
+        self._write_motion(slots_addr[i] + off, [slots[i]],
+                           'Gyro %s · Activation button %d' % (section, i + 1),
+                           'none' if slots[i] == motion.ACT_BTN_EMPTY else self.targetLabel(slots[i]))
 
     @Slot(str, int, bool)
     def setMotionInvert(self, section, idx, on):
@@ -1482,7 +1520,8 @@ class GamesirBridge(QObject):
         if off is None or not (0 <= idx < len(inv)):
             return
         self._m.get(section, {})['invert_%d' % idx] = bool(on)
-        self._write_motion(inv[idx][1] + off, [1 if on else 0])
+        self._write_motion(inv[idx][1] + off, [1 if on else 0],
+                           'Gyro %s · Invert %s' % (section, inv[idx][0]), 'on' if on else 'off')
 
     @Slot(str, int, int)
     def setMotionDir(self, section, idx, code):
@@ -1497,7 +1536,10 @@ class GamesirBridge(QObject):
             d = list(sec.get('dir_macros', [0] * len(dirs)))
             if idx < len(d):
                 d[idx] = code; sec['dir_macros'] = d
-        self._write_motion(dirs[idx] + off, [code])
+        self._write_motion(dirs[idx] + off, [code],
+                           'Gyro %s · Directional %s' % (section, ('up', 'down', 'left', 'right')[idx]
+                                                         if idx < 4 else idx),
+                           self.targetLabel(code) if code else 'cleared')
 
     # ------------------------------------------------------------ macros (paddles)
     @Property('QVariantList', notify=controllerChanged)
@@ -1747,7 +1789,7 @@ class GamesirBridge(QObject):
         return [r['label'] + ': ' + r['display']
                 for _key, r in sorted(self._pending.items(), key=lambda item: str(item[0]))]
 
-    def _queue(self, addr, data, label, display, bank=None, key=None):
+    def _queue(self, addr, data, label, display, bank=None, key=None, kind=None):
         if not profiles.is_recognized():
             return          # unrecognised/absent controller: never write registers
         edit = state.get('edit_profile') or state.get('profile')
@@ -1756,7 +1798,7 @@ class GamesirBridge(QObject):
         bank = bank if bank is not None else self._prof.profile_bank(edit)
         pkey = key if key is not None else (bank, addr)
         self._pending[pkey] = {'addr': addr, 'bank': bank, 'data': list(data),
-                               'label': label, 'display': str(display)}
+                               'label': label, 'display': str(display), 'kind': kind}
         self.pendingChanged.emit()
 
     # The write-side slots below no-op when the active profile lacks the field
@@ -1969,8 +2011,12 @@ class GamesirBridge(QObject):
             return
         changes = [(r.get('bank', default_bank), r['addr'], r['data'])
                    for r in self._pending.values()]
-        for _bank, addr, data in changes:
-            self._fold(addr, data)
+        for r in self._pending.values():
+            if r.get('kind') != 'motion':      # motion isn't in the config cache
+                self._fold(r['addr'], r['data'])
+        if self._m_dirty:                      # staged motion becomes the baseline
+            self._m_loaded = copy.deepcopy(self._m)
+            self._m_dirty = False
 
         style = self._prof.write_style     # capture: don't reframe if we switch
         gen = control.generation()         # pin to the live device session
@@ -2088,6 +2134,10 @@ class GamesirBridge(QObject):
         self._pending = {}
         self.pendingChanged.emit()
         self.configLoaded.emit()        # snap controls back to last-loaded values
+        if self._m_dirty:               # motion edits live in self._m: restore it
+            self._m = copy.deepcopy(self._m_loaded)
+            self._m_dirty = False
+            self.motionLoaded.emit()
 
     # Documented default analog config (shared across the vendor family). Used to
     # reset a profile on models WITHOUT a captured factory image (e.g. the 8K).
