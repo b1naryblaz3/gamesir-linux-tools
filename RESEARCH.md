@@ -239,6 +239,48 @@ tester with Deadband released; unbound; full-pad diff zero.
 
 ---
 
+### 8K macro targets beyond buttons — stick directions exist (2026-10-02)
+
+Found by accident: R5 on the project's own 8K (Nioh, dongle `10c8`) made the
+left stick move, in Deadband and in an external browser gamepad tester alike.
+Not the gyro — Motion activation was Off on all four profiles. R5's paddle block
+on the **active profile (1)** held an enabled macro (profiles 2–4 empty):
+
+```
+R5 block @0x2ad, bank 1:  00 00 00 00 00 01 00 00 03 15 00 74 00 70 2d 00 …
+                                         ^en      ^n  [tgt hold  delay] …
+step 1: target 0x15  hold 116 ms  delay 112 ms
+step 2: target 0x2d  hold  96 ms  delay  92 ms
+step 3: target 0x15  hold  12 ms  delay   0 ms
+```
+
+Neither code is in Deadband's target table (it stops at LT `0x13` / RT `0x14`),
+and Deadband has no controller-macro recorder, so the app did not write this —
+most likely GameSir's own app, origin unknown. Captured passively from the
+kernel's evdev node over four presses, identical each time:
+
+| t | left stick | step |
+|---|---|---|
+| 0 ms | **full up** (LY −100%) | 1 · `0x15` |
+| ~112 ms | **full up + full right** | 2 · `0x2d` |
+| ~205 ms | full up | 3 · `0x15` |
+| ~214 ms | centred | — |
+
+So **`0x15` = left stick up** and **`0x2d` = left stick up-right**, a single
+diagonal code (up stays held right through step 2; the timings match the stored
+hold/delay exactly).
+
+**What this settles for #15:** the firmware has stick-direction targets — at
+least as macro events. **Still open:** whether remap slots accept them too,
+whether any code gives a *partial* deflection (every step here was full), and
+the rest of the code space (the other directions, the right stick). A capture of
+GameSir's app picking these targets would answer all three at once.
+
+Deadband shows unknown codes as raw hex (`0x15`) and preserves them on save —
+editing another step does not rewrite them.
+
+---
+
 ## GameSir G7 SE — reference only (not owned; from mainline `xpad`)
 
 Listed in mainline Linux `xpad` as `3537:1010`, `XTYPE_XBOXONE` (added in kernel 6.14)
