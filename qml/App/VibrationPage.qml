@@ -19,6 +19,7 @@ Item {
         vibL.value = c.vib_l; vibR.value = c.vib_r
         if (bridge.isG7Pro) {
             trigL = c.vib_trigger_l; trigR = c.vib_trigger_r
+            trigLSlider.value = c.vib_trigger_l; trigRSlider.value = c.vib_trigger_r
             forceL = c.vib_force_l; syncL = c.vib_sync_l
             forceR = c.vib_force_r; syncR = c.vib_sync_r
         }
@@ -63,16 +64,7 @@ Item {
                 }
                 AccentSlider {
                     id: vibL; width: parent.width; from: 0; to: 100
-                    visible: !bridge.isG7Pro
                     onMoved: bridge.setScalar("vib_l", value)
-                }
-                Flow {
-                    visible: bridge.isG7Pro; width: parent.width; spacing: 6
-                    Repeater { model: [0, 25, 50, 75, 100]; delegate: PillButton {
-                        required property int modelData; label: modelData + "%"
-                        highlight: vibL.value === modelData
-                        onClicked: { vibL.value = modelData; bridge.setScalar("vib_l", modelData) }
-                    }}
                 }
                 Row {
                     width: parent.width
@@ -84,16 +76,7 @@ Item {
                 }
                 AccentSlider {
                     id: vibR; width: parent.width; from: 0; to: 100
-                    visible: !bridge.isG7Pro
                     onMoved: bridge.setScalar("vib_r", value)
-                }
-                Flow {
-                    visible: bridge.isG7Pro; width: parent.width; spacing: 6
-                    Repeater { model: [0, 25, 50, 75, 100]; delegate: PillButton {
-                        required property int modelData; label: modelData + "%"
-                        highlight: vibR.value === modelData
-                        onClicked: { vibR.value = modelData; bridge.setScalar("vib_r", modelData) }
-                    }}
                 }
                 PillButton {
                     label: "Test rumble"
@@ -103,36 +86,59 @@ Item {
 
             Card {
                 visible: bridge.isG7Pro; title: "Trigger motors"; Layout.fillWidth: true
-                Repeater {
-                    model: [{side: "l", label: "Left trigger"}, {side: "r", label: "Right trigger"}]
-                    delegate: Column {
-                        required property var modelData
-                        width: parent.width; spacing: 6
-                        Text { text: modelData.label; color: Theme.text; font.family: Theme.fontFamily }
-                        Flow {
-                            width: parent.width; spacing: 6
-                            Repeater { model: [0, 25, 50, 75, 100]; delegate: PillButton {
-                                required property int modelData
-                                label: modelData + "%"
-                                highlight: (parent.parent.modelData.side === "l" ? page.trigL : page.trigR) === modelData
-                                onClicked: {
-                                    var side = parent.parent.modelData.side
-                                    if (side === "l") page.trigL = modelData; else page.trigR = modelData
-                                    bridge.setG7Extra("vib_trigger_" + side, modelData)
-                                }
-                            }}
-                        }
-                        Row {
-                            spacing: 16
-                            Row { spacing: 6; Text { text: "Force"; color: Theme.textDim }
-                                ToggleSwitch { checked: modelData.side === "l" ? page.forceL : page.forceR
-                                    onToggled: { if (modelData.side === "l") page.forceL = checked; else page.forceR = checked
-                                                 bridge.setG7Extra("vib_force_" + modelData.side, checked ? 1 : 0) } } }
-                            Row { spacing: 6; Text { text: "Sync"; color: Theme.textDim }
-                                ToggleSwitch { checked: modelData.side === "l" ? page.syncL : page.syncR
-                                    onToggled: { if (modelData.side === "l") page.syncL = checked; else page.syncR = checked
-                                                 bridge.setG7Extra("vib_sync_" + modelData.side, checked ? 1 : 0) } } }
-                        }
+                // Sliders, like the grip motors above and every other controller's
+                // vibration. These were 0/25/50/75/100 pills; the pad stores any
+                // 0-100 value (60 written, read back and kept, 2026-10-01).
+                Column {
+                    width: parent.width; spacing: 6
+                    Row {
+                        width: parent.width
+                        Text { text: "Left trigger"; color: Theme.textDim
+                               font.family: Theme.fontFamily; font.pixelSize: Theme.fontS }
+                        Item { width: parent.width - 130; height: 1 }
+                        Text { text: trigLSlider.value + "%"; color: Theme.text
+                               font.family: Theme.fontFamily; font.pixelSize: Theme.fontS }
+                    }
+                    AccentSlider {
+                        id: trigLSlider; width: parent.width; from: 0; to: 100
+                        onMoved: { page.trigL = value; bridge.setG7Extra("vib_trigger_l", value) }
+                    }
+                    Row {
+                        spacing: 16
+                        Row { spacing: 6; Text { text: "Force"; color: Theme.textDim }
+                            ToggleSwitch { checked: page.forceL
+                                onToggled: { page.forceL = checked
+                                             bridge.setG7Extra("vib_force_l", checked ? 1 : 0) } } }
+                        Row { spacing: 6; Text { text: "Sync"; color: Theme.textDim }
+                            ToggleSwitch { checked: page.syncL
+                                onToggled: { page.syncL = checked
+                                             bridge.setG7Extra("vib_sync_l", checked ? 1 : 0) } } }
+                    }
+                }
+                Column {
+                    width: parent.width; spacing: 6
+                    Row {
+                        width: parent.width
+                        Text { text: "Right trigger"; color: Theme.textDim
+                               font.family: Theme.fontFamily; font.pixelSize: Theme.fontS }
+                        Item { width: parent.width - 130; height: 1 }
+                        Text { text: trigRSlider.value + "%"; color: Theme.text
+                               font.family: Theme.fontFamily; font.pixelSize: Theme.fontS }
+                    }
+                    AccentSlider {
+                        id: trigRSlider; width: parent.width; from: 0; to: 100
+                        onMoved: { page.trigR = value; bridge.setG7Extra("vib_trigger_r", value) }
+                    }
+                    Row {
+                        spacing: 16
+                        Row { spacing: 6; Text { text: "Force"; color: Theme.textDim }
+                            ToggleSwitch { checked: page.forceR
+                                onToggled: { page.forceR = checked
+                                             bridge.setG7Extra("vib_force_r", checked ? 1 : 0) } } }
+                        Row { spacing: 6; Text { text: "Sync"; color: Theme.textDim }
+                            ToggleSwitch { checked: page.syncR
+                                onToggled: { page.syncR = checked
+                                             bridge.setG7Extra("vib_sync_r", checked ? 1 : 0) } } }
                     }
                 }
             }

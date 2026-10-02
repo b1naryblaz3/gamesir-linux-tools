@@ -10,6 +10,7 @@ Item {
         var c = bridge.config
         if (c.dock_brightness === undefined) return
         brightness = c.dock_brightness
+        dockBright.value = c.dock_brightness   // explicit: a drag breaks a binding
         autoOn = c.dock_auto
     }
     Component.onCompleted: seed()
@@ -56,21 +57,17 @@ Item {
                     onToggled: { page.autoOn = checked; bridge.setG7Extra("dock_auto", checked ? 1 : 0) }
                 }
             }
-            Text {
-                text: "Brightness  " + page.brightness + "%"; color: Theme.textDim
-                font.family: Theme.fontFamily; font.pixelSize: Theme.fontS
+            Row {
+                width: parent.width
+                Text { text: "Brightness"; color: Theme.textDim
+                       font.family: Theme.fontFamily; font.pixelSize: Theme.fontS }
+                Item { width: parent.width - 110; height: 1 }
+                Text { text: dockBright.value + "%"; color: Theme.text
+                       font.family: Theme.fontFamily; font.pixelSize: Theme.fontS }
             }
-            Flow {
-                width: parent.width; spacing: 8
-                Repeater {
-                    model: [0, 25, 50, 75, 100]
-                    delegate: PillButton {
-                        required property int modelData
-                        label: modelData + "%"; highlight: page.brightness === modelData
-                        onClicked: { page.brightness = modelData
-                                     bridge.setG7Extra("dock_brightness", modelData) }
-                    }
-                }
+            AccentSlider {
+                id: dockBright; width: parent.width; from: 0; to: 100
+                onMoved: { page.brightness = value; bridge.setG7Extra("dock_brightness", value) }
             }
         }
         }
