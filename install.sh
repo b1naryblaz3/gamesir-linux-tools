@@ -238,7 +238,8 @@ case ":$PATH:" in
   *":$BIN:"*) ;;
   *) echo "    (Note: add ~/.local/bin to your PATH to use the '$APP_ID' command.)" ;;
 esac
-echo "    Put the controller in Xbox mode first (hold the green button ~2s)."
+echo "    If the app says your controller is in the wrong mode, it tells you how to"
+echo "    switch it for that model (e.g. Cyclone 2: hold the green button ~2s)."
 if [ "$RULE_OK" -ne 1 ]; then
   echo
   echo "    Reminder: the udev rule was not installed, so the app won't see the"
