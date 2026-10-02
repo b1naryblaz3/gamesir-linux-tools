@@ -57,11 +57,15 @@ Tune how the sticks and triggers behave, per profile:
 - **Sticks** — deadzone min/max, anti-deadzone, trajectory, and a **response curve**
   (presets **or** a draggable custom curve), for both sticks.
 - **Triggers** — deadzones, a **hair-trigger** point, and a response curve.
-- **Vibration** — left / right motor strength.
-- **Poll rate.**
+- **Vibration** — left / right motor strength (on controllers that have motors).
+- **Motion** — the gyro's activation, output, deadzones and curve (on controllers
+  with a gyro).
+- **Poll rate** — the dropdown at the end of the tab row. It belongs to the
+  profile, like everything above.
 
 Edits read the selected profile's current values and are staged in the pending bar.
-Choose **Apply** to persist the batch to the controller. Take a **backup** first if
+Choose **Apply** to persist the batch to the controller. (Macros are the one
+exception: they're saved to the controller as you edit them.) Take a **backup** first if
 you're experimenting (see below).
 
 ### Button remap

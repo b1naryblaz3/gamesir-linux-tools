@@ -5,6 +5,53 @@ and Logitech mice — newest first. This is the
 curated, user-facing summary; the complete history is in git. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com).
 
+## [0.4.0] — 2026-10-02
+
+### Added
+- **GameSir Tarantula Pro 8K** (in its PC mode, `3537:103d`): rebinds for all
+  nine programmable buttons (L4, R4, C1–C4, T1–T3), macros, sticks, triggers,
+  gyro and poll rate up to 8000 Hz. Lighting isn't supported yet. Write-tested on
+  my own pad.
+- **More G7 Pro editions.** Amazon edition, wired (`10ba`) and on its dongle
+  (`10bb`), write-tested on my own pad. White Trimode, on the cable (`1003`) and on
+  its charging dock (`1004`), confirmed by an owner. Zenless Zone Zero (`105e`) is
+  recognised but not configured yet.
+- **G7 Pro 8K Royal2 edition** (`1032` / `1033`), contributed by
+  [@kakxem](https://github.com/kakxem) in #12.
+- **An active-profile dot on every controller**, showing which profile the pad is
+  actually running, separately from the one you're editing.
+- **Poll rate is a dropdown in the tab row**, next to the profile it belongs to.
+- **Diagnostics:** each GameSir device's declared vendor channel, its interface
+  classes and drivers, which HID library is in use, and plain explanations for a
+  pad in the wrong mode.
+
+### Changed
+- **Motion edits now wait for Save to Profile**, with Discard, like every other
+  settings page. They used to be written the moment you clicked. The Macros tab,
+  which still saves as you edit, now says so on screen.
+- G7 Pro: sliders (not five fixed steps) for vibration, trigger motors and dock
+  brightness; the Device page laid out like the other tabs; "Release to games"
+  no longer looks like a fifth profile; L5/R5 drawn on the top edge as the
+  shoulder buttons they are.
+- Tabs follow what the controller has, so a pad without rumble motors or mapped
+  lighting doesn't get an empty page.
+- "Sleep timer" is called the same thing on every controller.
+- **Firmware backup and restore have been removed.**
+
+### Fixed
+- **The profile bar had been missing for every controller since v0.3.0.**
+- G7 Pro: X and Y swapped in the input view; paddles read from the wrong byte.
+- Selected buttons and pills were hard to read on the Emerald and Amber themes.
+- **SteamOS install** (#13, #19): no more pacman conflict with the Deck's own
+  hardware support, and no `pip` or compiler needed.
+- **"My G7 Pro was renamed to a T4 Kaleid"** (#14): the White Trimode's dock ID
+  is also the T4 Kaleid's ID in the Linux kernel, which labels it wrongly and gets
+  no input from it. Deadband no longer confuses the two; nothing writes a pad's
+  identity.
+- Diagnostics: couldn't see the Amazon edition at all; checked the wrong place for
+  the udev rule on packaged installs; reported harmless permission denials as
+  errors.
+
 ## [0.3.0] — 2026-09-06
 
 ### Added
