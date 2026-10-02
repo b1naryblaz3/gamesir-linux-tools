@@ -29,9 +29,16 @@ Window {
                 return mouse.profiles[i].label
         return "this profile"
     }
+    // Tabs follow what the connected controller actually has, so a profile
+    // without (say) mapped lighting or vibration motors doesn't get an empty page.
     readonly property var controllerTabs: bridge.isG7Pro
         ? ["Rebinds", "Sticks", "Triggers", "Vibration", "Device"]
-        : ["Rebinds", "Sticks", "Motion", "Triggers", "Vibration", "Lights", "Macros"]
+        : ["Rebinds", "Sticks"]
+          .concat(bridge.hasMotion ? ["Motion"] : [])
+          .concat(["Triggers"])
+          .concat(bridge.hasVibration ? ["Vibration"] : [])
+          .concat(bridge.lightingStyle !== "none" ? ["Lights"] : [])
+          .concat(bridge.hasMacros ? ["Macros"] : [])
     readonly property var mouseTabs: ["Buttons", "DPI", "Macros"]
     // Staged poll-rate choice shown by the tab-row dropdown. Seeded from the
     // profile's read-back config; configLoaded also fires on Discard, so a

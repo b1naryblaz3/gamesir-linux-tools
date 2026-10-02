@@ -494,7 +494,96 @@ G7_8K = ControllerProfile(
 
 
 # --- registry + detection ----------------------------------------------------
-ALL = (CYCLONE, G7_PRO, G7_NATIVE, G7_PRO_OTHER, G7_8K)
+# --- Tarantula Pro 8K : GameSir Tarantula Pro 8K (3537:103d) -----------------
+# Wired-only PC pad. Decoded from Windows captures of GameSir Connect v1.16.7 and
+# a read-only dump of the project's own pad on Linux (2026-10-02); details in
+# Controller Testing/Tarantula Pro 8k/FINDINGS.md.
+#
+# IDENTITY: it auto-detects its host. In PC/XBOX mode it is 3537:103d (XInput on
+# iface 0 + the family channel on iface 1) -- the mode this profile drives. On
+# Linux it can come up as 3537:103c instead (plain HID; the family channel is
+# declared there but never answers), so 103c is deliberately NOT listed.
+#
+# MAP: the 8K's, plus five more 0xa9-byte button blocks. The 8K has 4 extra-button
+# blocks (L4 R4 L5 R5); the Tarantula has 9 (L4 R4 C1 C2 C3 C4 T1 T2 T3), so every
+# register AFTER the blocks sits 5 x 0xa9 = 0x34d higher than on the 8K. Proven by
+# T4 (stick deadzone write at 0x06e5 = 8K 0x0397 + 0x34d) and T9 (motion
+# activation at 0x0729 = 8K 0x03dc + 0x34d), and by a full Linux dump that decodes
+# with the shifted map into textbook defaults (sticks 5-100%, linear 5-point
+# curves; triggers 5-95% with the family's default 3-point curve; motion off,
+# xy 50, sens 50). Everything BEFORE the blocks matches the 8K/Cyclone: poll rate
+# 0x002e (same 0..5 ladder), standard remap slots (A @0x007a seen in T3).
+_TAR_SHIFT = 5 * 0xa9
+
+
+def _tar(addr):
+    return addr + _TAR_SHIFT
+
+
+def _tar_motion(m):
+    out = {}
+    for k, v in m.items():
+        if k == 'inverts':
+            out[k] = tuple((n, _tar(a)) for n, a in v)
+        elif k in ('act_buttons', 'dir_macros'):
+            out[k] = tuple(_tar(a) for a in v)
+        elif isinstance(v, bool) or k in ('curve_npts', 'tilt_offset'):
+            out[k] = v
+        elif isinstance(v, int):
+            out[k] = _tar(v)
+        else:
+            out[k] = v
+    return out
+
+
+TARANTULA_PRO_8K = ControllerProfile(
+    name='GameSir Tarantula Pro 8K',
+    short='Tarantula Pro 8K',
+    usb_products=(0x103d,),
+    wired_products=(0x103d,),               # wired-only controller
+    write_style='cyclone',                  # bare 0f03 writes (captures T3/T4/T7/T10)
+    input_style='cyclone_0x12',             # live 0x12 on the vendor hidraw
+    profile_banks=(1, 2, 3, 4),             # the manual's four configurations; the
+                                            # pad also has a bank 5 (role unknown --
+                                            # possibly the Shift layer), left alone
+    factory_reset=False,
+    lighting_style='none',                  # top-button + logo lighting only partly
+                                            # mapped (bank 0x20); no Lights tab yet
+    has_motion=True,                        # Aim/Tilt gyro, the 8K's block shifted
+    has_macros=True,                        # 9 programmable buttons, 32 steps each
+    macro_max=32,                           # 9-byte header + 32 x 5 = 0xa9 exactly
+    POLL_RATE=_cy.POLL_RATE,                # 0x002e; codes 0..5 (T7: 0=250 2=1000
+    POLL_RATES=('250 Hz', '500 Hz', '1000 Hz',   # 4=4000 5=8000 observed; 1/3 by the
+                '2000 Hz', '4000 Hz', '8000 Hz'),  # doubling ladder, as on the 8K).
+                                            # NB the pad RE-ENUMERATES on change.
+    dz_wide=True, stick_curve_npts=5,       # the 8K's 16-bit x10 analog engine
+    LT_DZ_MIN=_tar(0x0357), LT_DZ_MAX=_tar(0x0359),
+    LT_ADZ_MIN=_tar(0x035b), LT_ADZ_MAX=_tar(0x035d),
+    LT_HAIR=_tar(0x0364), LT_CURVE=_tar(0x0368), RT_OFFSET=0x20,
+    ST_TRAJ=_tar(0x0395), ST_DZ_MIN=_tar(0x0397), ST_DZ_MAX=_tar(0x0399),
+    ST_ADZ_MIN=_tar(0x039b), ST_ADZ_MAX=_tar(0x039d),
+    ST_CURVE=_tar(0x03a0), RS_OFFSET=0x24,
+    # standard 12 + L4 as the Cyclone/8K, then the other 8 programmable buttons
+    # (block addresses mapped by capture R1, one button at a time).
+    REMAP_SLOTS=tuple(_cy.REMAP_SLOTS[:13]) + (
+        ('R4', 0x015b),
+        ('C1', 0x0204), ('C2', 0x02ad), ('C3', 0x0356), ('C4', 0x03ff),
+        ('T1', 0x04a8), ('T2', 0x0551), ('T3', 0x05fa),
+    ),
+    MACRO_SLOTS=(('L4', 0x00b2), ('R4', 0x015b),
+                 ('C1', 0x0204), ('C2', 0x02ad), ('C3', 0x0356), ('C4', 0x03ff),
+                 ('T1', 0x04a8), ('T2', 0x0551), ('T3', 0x05fa)),
+    # the family's gamepad targets (identical codes, capture R2) plus three the
+    # Cyclone list lacks. Shift layer (0xe7) is left out until the Shift layer
+    # itself can be edited.
+    REMAP_TARGETS=tuple((n, c) for n, c in REMAP_TARGETS if c != 0xff) + (
+        ('View', 0x0e), ('Menu', 0x0f), ('Screenshot', 0x10),
+    ) + tuple((n, c) for n, c in REMAP_TARGETS if c == 0xff),
+    motion=_tar_motion(G7_8K.motion),
+)
+
+
+ALL = (CYCLONE, G7_PRO, G7_NATIVE, G7_PRO_OTHER, G7_8K, TARANTULA_PRO_8K)
 DEFAULT = CYCLONE
 
 

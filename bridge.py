@@ -940,6 +940,13 @@ class GamesirBridge(QObject):
         return profiles.is_recognized() and profiles.active().has_motion
 
     @Property(bool, notify=controllerChanged)
+    def hasVibration(self):
+        """False for controllers with no rumble motors (e.g. the Tarantula Pro 8K),
+        whose profile leaves VIB_L unset -- the Vibration tab is hidden for them.
+        True when nothing is recognised, so the default layout is unchanged."""
+        return profiles.active().VIB_L is not None
+
+    @Property(bool, notify=controllerChanged)
     def hasMacros(self):
         return profiles.is_recognized() and profiles.active().has_macros
 
@@ -1564,7 +1571,8 @@ class GamesirBridge(QObject):
             items = (list(g7pro.GAMEPAD_TARGETS) + list(cfg.KEYBOARD_TARGETS)
                      + list(g7pro.NUMPAD_TARGETS) + list(g7pro.MOUSE_TARGETS))
             return dict((c, n) for n, c in items).get(code, '0x%02x' % code)
-        return cfg.target_label(code)
+        own = dict((c, n) for n, c in self._prof.REMAP_TARGETS)
+        return own[code] if code in own else cfg.target_label(code)
 
     @Property('QVariantList', constant=True)
     def keyboardRows(self):
@@ -1586,7 +1594,9 @@ class GamesirBridge(QObject):
 
     @Property('QVariantList', notify=controllerChanged)
     def buttonTargets(self):
-        items = g7pro.GAMEPAD_TARGETS if self._prof is profiles.G7_PRO else cfg.REMAP_TARGETS
+        # Each profile carries its own gamepad target list (the G7 Pro's, the
+        # Tarantula's extra View/Menu/Screenshot); Cyclone/8K use the default.
+        items = self._prof.REMAP_TARGETS
         return [{'name': n, 'code': c} for n, c in items if c != 0xff]
 
     @Property(int, notify=controllerChanged)
@@ -1874,7 +1884,7 @@ class GamesirBridge(QObject):
 
     @Property('QVariantList', constant=True)
     def remapTargets(self):
-        targets = self._prof.REMAP_TARGETS if self._prof is profiles.G7_PRO else cfg.REMAP_TARGETS
+        targets = self._prof.REMAP_TARGETS
         return [cfg.REMAP_NONE] + [name for name, _code in targets]
 
     @Slot(str, str)
@@ -1891,7 +1901,7 @@ class GamesirBridge(QObject):
         if addr is None:
             return
         data = [0x00, 0x00] if code < 0 else [0x01, code & 0xff]
-        label = cfg.REMAP_NONE if code < 0 else cfg.target_label(code)
+        label = cfg.REMAP_NONE if code < 0 else self.targetLabel(code)
         self._queue(addr, data, 'Rebind ' + source, label)
 
     @Slot(str, int)
